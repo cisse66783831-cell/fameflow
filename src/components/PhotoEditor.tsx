@@ -4,10 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { 
   Upload, ZoomIn, ZoomOut, RotateCw, Download, 
-  Share2, Move, Type, GripVertical 
+  Share2, Move, Type, GripVertical, FileText 
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import jsPDF from 'jspdf';
 
 interface PhotoEditorProps {
   campaign: Campaign;
@@ -214,6 +215,45 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
     toast.success('Image downloaded!');
   };
 
+  const handleDownloadPDF = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const pdf = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    const imgData = canvas.toDataURL('image/png');
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    
+    // Center the image on the page
+    const canvasAspect = canvas.width / canvas.height;
+    const pageAspect = pdfWidth / pdfHeight;
+    
+    let imgWidth, imgHeight, x, y;
+    
+    if (canvasAspect > pageAspect) {
+      imgWidth = pdfWidth - 20;
+      imgHeight = imgWidth / canvasAspect;
+      x = 10;
+      y = (pdfHeight - imgHeight) / 2;
+    } else {
+      imgHeight = pdfHeight - 20;
+      imgWidth = imgHeight * canvasAspect;
+      x = (pdfWidth - imgWidth) / 2;
+      y = 10;
+    }
+
+    pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
+    pdf.save(`${campaign.title.replace(/\s+/g, '-')}.pdf`);
+    
+    onDownload();
+    toast.success('PDF downloaded!');
+  };
+
   const handleShare = async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -391,8 +431,19 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
             disabled={campaign.type === 'photo' && !userPhoto}
           >
             <Download className="w-4 h-4 mr-2" />
-            Download
+            Download PNG
           </Button>
+
+          {campaign.type === 'document' && (
+            <Button 
+              variant="secondary" 
+              className="w-full"
+              onClick={handleDownloadPDF}
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              Download PDF
+            </Button>
+          )}
           
           <Button 
             variant="outline" 
