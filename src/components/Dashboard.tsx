@@ -1,0 +1,191 @@
+import { useState } from 'react';
+import { Campaign } from '@/types/campaign';
+import { useCampaigns } from '@/hooks/useCampaigns';
+import { StatsCard } from './StatsCard';
+import { CampaignCard } from './CampaignCard';
+import { CreateCampaignModal } from './CreateCampaignModal';
+import { PhotoEditor } from './PhotoEditor';
+import { Button } from '@/components/ui/button';
+import { 
+  Plus, Eye, Download, Layers, Beaker, 
+  ArrowLeft, Zap, Sparkles 
+} from 'lucide-react';
+import { toast } from 'sonner';
+
+export const Dashboard = () => {
+  const { 
+    campaigns, 
+    isLoading, 
+    addCampaign, 
+    deleteCampaign, 
+    loadDemoTemplates, 
+    incrementStats,
+    getTotalStats 
+  } = useCampaigns();
+  
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
+
+  const stats = getTotalStats();
+
+  const handleLoadDemos = () => {
+    loadDemoTemplates();
+    toast.success('Demo templates loaded!');
+  };
+
+  const handleDeleteCampaign = (id: string) => {
+    if (confirm('Are you sure you want to delete this campaign?')) {
+      deleteCampaign(id);
+      toast.success('Campaign deleted');
+    }
+  };
+
+  const handleSelectCampaign = (campaign: Campaign) => {
+    setSelectedCampaign(campaign);
+    incrementStats(campaign.id, 'views');
+  };
+
+  const handleDownload = () => {
+    if (selectedCampaign) {
+      incrementStats(selectedCampaign.id, 'downloads');
+    }
+  };
+
+  if (selectedCampaign) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="container max-w-5xl py-8">
+          <button
+            onClick={() => setSelectedCampaign(null)}
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back to Dashboard</span>
+          </button>
+
+          <div className="mb-8">
+            <h1 className="text-3xl font-display font-bold text-foreground">
+              {selectedCampaign.title}
+            </h1>
+            <p className="text-muted-foreground mt-1">{selectedCampaign.description}</p>
+          </div>
+
+          <PhotoEditor campaign={selectedCampaign} onDownload={handleDownload} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
+        <div className="container flex items-center justify-between h-16">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl gradient-primary">
+              <Zap className="w-5 h-5 text-primary-foreground" />
+            </div>
+            <span className="font-display font-bold text-xl">FrameFlow</span>
+          </div>
+          
+          <Button variant="gradient" onClick={() => setShowCreateModal(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            New Campaign
+          </Button>
+        </div>
+      </header>
+
+      <main className="container py-8">
+        {/* Stats Section */}
+        <section className="mb-10">
+          <h2 className="font-display font-semibold text-lg text-muted-foreground mb-4">
+            Overview
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <StatsCard
+              icon={<Layers className="w-5 h-5" />}
+              label="Total Campaigns"
+              value={campaigns.length}
+            />
+            <StatsCard
+              icon={<Eye className="w-5 h-5" />}
+              label="Total Views"
+              value={stats.views}
+              trend="+12%"
+            />
+            <StatsCard
+              icon={<Download className="w-5 h-5" />}
+              label="Total Downloads"
+              value={stats.downloads}
+              trend="+8%"
+            />
+          </div>
+        </section>
+
+        {/* Campaigns Grid */}
+        <section>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="font-display font-semibold text-lg text-foreground">
+              Your Campaigns
+            </h2>
+            
+            {campaigns.length === 0 && (
+              <Button variant="outline" onClick={handleLoadDemos}>
+                <Beaker className="w-4 h-4 mr-2" />
+                Load Demo Templates
+              </Button>
+            )}
+          </div>
+
+          {isLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="glass-card rounded-2xl h-80 animate-pulse" />
+              ))}
+            </div>
+          ) : campaigns.length === 0 ? (
+            <div className="glass-card rounded-2xl p-12 text-center animate-fade-in">
+              <div className="p-4 rounded-full bg-primary/10 w-fit mx-auto mb-4">
+                <Sparkles className="w-8 h-8 text-primary" />
+              </div>
+              <h3 className="font-display font-semibold text-xl mb-2">
+                No campaigns yet
+              </h3>
+              <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+                Create your first viral campaign or load demo templates to explore the platform.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Button variant="gradient" onClick={() => setShowCreateModal(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Campaign
+                </Button>
+                <Button variant="outline" onClick={handleLoadDemos}>
+                  <Beaker className="w-4 h-4 mr-2" />
+                  Load Demos
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {campaigns.map((campaign, index) => (
+                <CampaignCard
+                  key={campaign.id}
+                  campaign={campaign}
+                  onSelect={handleSelectCampaign}
+                  onDelete={handleDeleteCampaign}
+                  index={index}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      </main>
+
+      <CreateCampaignModal
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onCreate={addCampaign}
+      />
+    </div>
+  );
+};
