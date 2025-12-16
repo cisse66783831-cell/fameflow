@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Campaign } from '@/types/campaign';
 import { useCampaigns } from '@/hooks/useCampaigns';
+import { useAuth } from '@/hooks/useAuth';
 import { StatsCard } from './StatsCard';
 import { CampaignCard } from './CampaignCard';
 import { CreateCampaignModal } from './CreateCampaignModal';
@@ -8,9 +9,10 @@ import { PhotoEditor } from './PhotoEditor';
 import { Button } from '@/components/ui/button';
 import { 
   Plus, Eye, Download, Layers, Beaker, 
-  ArrowLeft, Zap, Sparkles 
+  ArrowLeft, Zap, Sparkles, LogOut 
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 export const Dashboard = () => {
   const { 
@@ -23,10 +25,19 @@ export const Dashboard = () => {
     getTotalStats 
   } = useCampaigns();
   
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+  
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
 
   const stats = getTotalStats();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+    toast.success('Déconnexion réussie');
+  };
 
   const handleLoadDemos = () => {
     loadDemoTemplates();
@@ -88,10 +99,19 @@ export const Dashboard = () => {
             <span className="font-display font-bold text-xl">FrameFlow</span>
           </div>
           
-          <Button variant="gradient" onClick={() => setShowCreateModal(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            New Campaign
-          </Button>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground hidden sm:block">
+              {user?.email}
+            </span>
+            <Button variant="gradient" onClick={() => setShowCreateModal(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              <span className="hidden sm:inline">New Campaign</span>
+              <span className="sm:hidden">New</span>
+            </Button>
+            <Button variant="ghost" size="icon" onClick={handleSignOut}>
+              <LogOut className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       </header>
 
