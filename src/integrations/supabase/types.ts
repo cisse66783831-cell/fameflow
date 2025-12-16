@@ -14,6 +14,65 @@ export type Database = {
   }
   public: {
     Tables: {
+      campaigns: {
+        Row: {
+          background_image: string | null
+          created_at: string
+          description: string | null
+          downloads: number
+          frame_image: string
+          hashtags: string[]
+          id: string
+          is_demo: boolean
+          text_elements: Json
+          title: string
+          type: string
+          updated_at: string
+          user_id: string
+          views: number
+        }
+        Insert: {
+          background_image?: string | null
+          created_at?: string
+          description?: string | null
+          downloads?: number
+          frame_image: string
+          hashtags?: string[]
+          id?: string
+          is_demo?: boolean
+          text_elements?: Json
+          title: string
+          type: string
+          updated_at?: string
+          user_id: string
+          views?: number
+        }
+        Update: {
+          background_image?: string | null
+          created_at?: string
+          description?: string | null
+          downloads?: number
+          frame_image?: string
+          hashtags?: string[]
+          id?: string
+          is_demo?: boolean
+          text_elements?: Json
+          title?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+          views?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
