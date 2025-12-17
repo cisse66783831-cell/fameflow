@@ -7,9 +7,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Image, FileText, Upload, Sparkles, X } from 'lucide-react';
+import { Image, FileText, Upload, Sparkles, X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useStorage } from '@/hooks/useStorage';
 
 interface CreateCampaignModalProps {
   open: boolean;
@@ -24,17 +25,19 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
   const [description, setDescription] = useState('');
   const [hashtags, setHashtags] = useState('');
   const [frameImage, setFrameImage] = useState<string>('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const { uploadImage } = useStorage();
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setFrameImage(event.target?.result as string);
-        toast.success('Image uploaded!');
-      };
-      reader.readAsDataURL(file);
+      setImageFile(file);
+      // Create preview URL
+      const previewUrl = URL.createObjectURL(file);
+      setFrameImage(previewUrl);
+      toast.success('Image selected!');
     }
   };
 
@@ -56,13 +59,24 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
     toast.success('Generated with AI!');
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!title.trim()) {
       toast.error('Please enter a title');
       return;
     }
-    if (!frameImage) {
+    if (!imageFile) {
       toast.error('Please upload an image');
+      return;
+    }
+
+    setIsUploading(true);
+    
+    // Upload image to Supabase Storage
+    const uploadedUrl = await uploadImage(imageFile, type === 'photo' ? 'frames' : 'documents');
+    
+    if (!uploadedUrl) {
+      toast.error('Failed to upload image');
+      setIsUploading(false);
       return;
     }
 
@@ -71,7 +85,7 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
       title: title.trim(),
       description: description.trim(),
       type,
-      frameImage,
+      frameImage: uploadedUrl,
       textElements: [],
       hashtags: hashtags.split(' ').filter(h => h.startsWith('#')),
       views: 0,
@@ -80,6 +94,7 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
     };
 
     onCreate(campaign);
+    setIsUploading(false);
     handleClose();
     toast.success('Campaign created!');
   };
@@ -91,6 +106,7 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
     setDescription('');
     setHashtags('');
     setFrameImage('');
+    setImageFile(null);
     onClose();
   };
 
@@ -239,11 +255,18 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
 
             {/* Actions */}
             <div className="flex gap-3 pt-2">
-              <Button variant="outline" onClick={() => setStep('type')} className="flex-1">
+              <Button variant="outline" onClick={() => setStep('type')} className="flex-1" disabled={isUploading}>
                 Back
               </Button>
-              <Button variant="gradient" onClick={handleCreate} className="flex-1">
-                Create Campaign
+              <Button variant="gradient" onClick={handleCreate} className="flex-1" disabled={isUploading}>
+                {isUploading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  'Create Campaign'
+                )}
               </Button>
             </div>
           </div>
