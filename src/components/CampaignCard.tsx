@@ -1,7 +1,9 @@
 import { Campaign } from '@/types/campaign';
-import { Eye, Download, Image, FileText, Trash2, Play } from 'lucide-react';
+import { Eye, Download, Image, FileText, Trash2, Play, Share2, Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useState } from 'react';
+import { toast } from 'sonner';
 
 interface CampaignCardProps {
   campaign: Campaign;
@@ -11,9 +13,42 @@ interface CampaignCardProps {
 }
 
 export const CampaignCard = ({ campaign, onSelect, onDelete, index }: CampaignCardProps) => {
+  const [copied, setCopied] = useState(false);
+  
   const previewImage = campaign.type === 'photo' 
     ? campaign.frameImage 
     : campaign.backgroundImage;
+
+  const shareUrl = `${window.location.origin}/c/${campaign.id}`;
+
+  const handleCopyLink = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      toast.success('Link copied!');
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error('Failed to copy link');
+    }
+  };
+
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: campaign.title,
+          text: campaign.description || `Check out ${campaign.title} on FrameFlow`,
+          url: shareUrl,
+        });
+      } catch {
+        // User cancelled or error
+      }
+    } else {
+      handleCopyLink(e);
+    }
+  };
 
   return (
     <div 
@@ -80,7 +115,7 @@ export const CampaignCard = ({ campaign, onSelect, onDelete, index }: CampaignCa
           {campaign.description}
         </p>
 
-        {/* Stats */}
+        {/* Stats & Actions */}
         <div className="flex items-center gap-4 mt-4 pt-4 border-t border-border">
           <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
             <Eye className="w-4 h-4" />
@@ -91,15 +126,32 @@ export const CampaignCard = ({ campaign, onSelect, onDelete, index }: CampaignCa
             <span>{campaign.downloads.toLocaleString()}</span>
           </div>
           
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(campaign.id);
-            }}
-            className="ml-auto p-2 text-muted-foreground hover:text-destructive transition-colors rounded-lg hover:bg-destructive/10"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+          <div className="ml-auto flex items-center gap-1">
+            <button
+              onClick={handleCopyLink}
+              className="p-2 text-muted-foreground hover:text-primary transition-colors rounded-lg hover:bg-primary/10"
+              title="Copy link"
+            >
+              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+            </button>
+            <button
+              onClick={handleShare}
+              className="p-2 text-muted-foreground hover:text-primary transition-colors rounded-lg hover:bg-primary/10"
+              title="Share"
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(campaign.id);
+              }}
+              className="p-2 text-muted-foreground hover:text-destructive transition-colors rounded-lg hover:bg-destructive/10"
+              title="Delete"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Hashtags */}
