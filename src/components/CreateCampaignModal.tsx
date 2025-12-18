@@ -7,10 +7,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Image, FileText, Upload, Sparkles, X, Loader2 } from 'lucide-react';
+import { Image, FileText, Upload, Sparkles, X, Loader2, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useStorage } from '@/hooks/useStorage';
+import { supabase } from '@/integrations/supabase/client';
 
 interface CreateCampaignModalProps {
   open: boolean;
@@ -27,6 +28,7 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
   const [frameImage, setFrameImage] = useState<string>('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingHashtags, setIsGeneratingHashtags] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const { uploadImage } = useStorage();
 
@@ -34,7 +36,6 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
     const file = e.target.files?.[0];
     if (file) {
       setImageFile(file);
-      // Create preview URL
       const previewUrl = URL.createObjectURL(file);
       setFrameImage(previewUrl);
       toast.success('Image selected!');
@@ -43,20 +44,60 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
 
   const generateWithAI = async () => {
     setIsGenerating(true);
-    // Simulate AI generation
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    const suggestions = [
-      { title: 'Support Our Cause', hashtags: '#Support #Community #Together' },
-      { title: 'Join the Movement', hashtags: '#Movement #Change #Action' },
-      { title: 'Celebrate With Us', hashtags: '#Celebrate #Party #Event' },
-    ];
-    
-    const random = suggestions[Math.floor(Math.random() * suggestions.length)];
-    setTitle(random.title);
-    setHashtags(random.hashtags);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-assistant', {
+        body: { type: 'campaign-idea' }
+      });
+
+      if (error) throw error;
+      
+      const result = data?.result;
+      if (result) {
+        try {
+          const parsed = JSON.parse(result);
+          setTitle(parsed.title || '');
+          setDescription(parsed.description || '');
+          setHashtags(parsed.hashtags || '');
+        } catch {
+          // If not JSON, use as title
+          setTitle(result.slice(0, 50));
+        }
+        toast.success('Generated with AI!');
+      }
+    } catch (error) {
+      console.error('AI generation error:', error);
+      toast.error('Failed to generate. Try again.');
+    }
     setIsGenerating(false);
-    toast.success('Generated with AI!');
+  };
+
+  const generateHashtags = async () => {
+    if (!title.trim()) {
+      toast.error('Please enter a title first');
+      return;
+    }
+    
+    setIsGeneratingHashtags(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-assistant', {
+        body: { 
+          type: 'hashtags',
+          title,
+          description
+        }
+      });
+
+      if (error) throw error;
+      
+      if (data?.result) {
+        setHashtags(data.result);
+        toast.success('Hashtags generated!');
+      }
+    } catch (error) {
+      console.error('Hashtag generation error:', error);
+      toast.error('Failed to generate hashtags');
+    }
+    setIsGeneratingHashtags(false);
   };
 
   const handleCreate = async () => {
@@ -243,7 +284,19 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
 
             {/* Hashtags */}
             <div>
-              <label className="text-sm font-medium mb-2 block">Hashtags</label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium">Hashtags</label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={generateHashtags}
+                  disabled={isGeneratingHashtags || !title.trim()}
+                  className="text-xs"
+                >
+                  <Wand2 className="w-3 h-3 mr-1" />
+                  {isGeneratingHashtags ? 'Generating...' : 'Generate'}
+                </Button>
+              </div>
               <input
                 type="text"
                 value={hashtags}

@@ -6,10 +6,12 @@ import { StatsCard } from './StatsCard';
 import { CampaignCard } from './CampaignCard';
 import { CreateCampaignModal } from './CreateCampaignModal';
 import { PhotoEditor } from './PhotoEditor';
+import { AnalyticsChart } from './AnalyticsChart';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Plus, Eye, Download, Layers, Beaker, 
-  ArrowLeft, Zap, Sparkles, LogOut 
+  ArrowLeft, Zap, Sparkles, LogOut, BarChart3, LayoutGrid
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -142,63 +144,83 @@ export const Dashboard = () => {
           </div>
         </section>
 
-        {/* Campaigns Grid */}
-        <section>
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="font-display font-semibold text-lg text-foreground">
-              Your Campaigns
-            </h2>
-            
-            {campaigns.length === 0 && (
-              <Button variant="outline" onClick={handleLoadDemos}>
-                <Beaker className="w-4 h-4 mr-2" />
-                Load Demo Templates
-              </Button>
-            )}
-          </div>
+        {/* Tabs for Campaigns and Analytics */}
+        <Tabs defaultValue="campaigns" className="space-y-6">
+          <TabsList className="glass-card">
+            <TabsTrigger value="campaigns" className="gap-2">
+              <LayoutGrid className="w-4 h-4" />
+              Campaigns
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Analytics
+            </TabsTrigger>
+          </TabsList>
 
-          {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="glass-card rounded-2xl h-80 animate-pulse" />
-              ))}
-            </div>
-          ) : campaigns.length === 0 ? (
-            <div className="glass-card rounded-2xl p-12 text-center animate-fade-in">
-              <div className="p-4 rounded-full bg-primary/10 w-fit mx-auto mb-4">
-                <Sparkles className="w-8 h-8 text-primary" />
+          <TabsContent value="campaigns">
+            {/* Campaigns Grid */}
+            <section>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="font-display font-semibold text-lg text-foreground">
+                  Your Campaigns
+                </h2>
+                
+                {campaigns.length === 0 && (
+                  <Button variant="outline" onClick={handleLoadDemos}>
+                    <Beaker className="w-4 h-4 mr-2" />
+                    Load Demo Templates
+                  </Button>
+                )}
               </div>
-              <h3 className="font-display font-semibold text-xl mb-2">
-                No campaigns yet
-              </h3>
-              <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
-                Create your first viral campaign or load demo templates to explore the platform.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Button variant="gradient" onClick={() => setShowCreateModal(true)}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Campaign
-                </Button>
-                <Button variant="outline" onClick={handleLoadDemos}>
-                  <Beaker className="w-4 h-4 mr-2" />
-                  Load Demos
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {campaigns.map((campaign, index) => (
-                <CampaignCard
-                  key={campaign.id}
-                  campaign={campaign}
-                  onSelect={handleSelectCampaign}
-                  onDelete={handleDeleteCampaign}
-                  index={index}
-                />
-              ))}
-            </div>
-          )}
-        </section>
+
+              {isLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="glass-card rounded-2xl h-80 animate-pulse" />
+                  ))}
+                </div>
+              ) : campaigns.length === 0 ? (
+                <div className="glass-card rounded-2xl p-12 text-center animate-fade-in">
+                  <div className="p-4 rounded-full bg-primary/10 w-fit mx-auto mb-4">
+                    <Sparkles className="w-8 h-8 text-primary" />
+                  </div>
+                  <h3 className="font-display font-semibold text-xl mb-2">
+                    No campaigns yet
+                  </h3>
+                  <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+                    Create your first viral campaign or load demo templates to explore the platform.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <Button variant="gradient" onClick={() => setShowCreateModal(true)}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create Campaign
+                    </Button>
+                    <Button variant="outline" onClick={handleLoadDemos}>
+                      <Beaker className="w-4 h-4 mr-2" />
+                      Load Demos
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {campaigns.map((campaign, index) => (
+                    <CampaignCard
+                      key={campaign.id}
+                      campaign={campaign}
+                      onSelect={handleSelectCampaign}
+                      onDelete={handleDeleteCampaign}
+                      index={index}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          </TabsContent>
+
+          <TabsContent value="analytics">
+            <AnalyticsChart campaigns={campaigns} />
+          </TabsContent>
+        </Tabs>
       </main>
 
       <CreateCampaignModal
