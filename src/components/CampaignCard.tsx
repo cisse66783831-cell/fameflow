@@ -1,9 +1,10 @@
 import { Campaign } from '@/types/campaign';
-import { Eye, Download, Image, FileText, Trash2, Play, Share2, Copy, Check } from 'lucide-react';
+import { Eye, Download, Image, FileText, Trash2, Play, Share2, Copy, Check, QrCode } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { QRCodeShare } from './QRCodeShare';
 
 interface CampaignCardProps {
   campaign: Campaign;
@@ -154,19 +155,24 @@ export const CampaignCard = ({ campaign, onSelect, onDelete, index }: CampaignCa
           </div>
         </div>
 
-        {/* Hashtags */}
-        {campaign.hashtags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-3">
-            {campaign.hashtags.slice(0, 3).map((tag, i) => (
-              <span 
-                key={i}
-                className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary"
-              >
-                {tag}
-              </span>
-            ))}
+        {/* Hashtags & QR */}
+        <div className="flex items-center justify-between mt-3">
+          {campaign.hashtags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {campaign.hashtags.slice(0, 2).map((tag, i) => (
+                <span 
+                  key={i}
+                  className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+          <div onClick={(e) => e.stopPropagation()}>
+            <QRCodeShare campaignId={campaign.id} campaignTitle={campaign.title} />
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
