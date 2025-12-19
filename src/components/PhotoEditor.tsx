@@ -38,10 +38,21 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
 
     ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
+    // Helper to load image with CORS
+    const loadImage = (src: string): Promise<HTMLImageElement> => {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+      });
+    };
+
     // Draw user photo if exists
     if (userPhoto) {
       const img = new Image();
-      img.onload = () => {
+      img.onload = async () => {
         ctx.save();
         ctx.translate(CANVAS_SIZE / 2, CANVAS_SIZE / 2);
         ctx.rotate((rotation * Math.PI) / 180);
@@ -62,33 +73,28 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
 
         // Draw frame overlay
         if (campaign.frameImage) {
-          const frame = new Image();
-          frame.onload = () => {
+          try {
+            const frame = await loadImage(campaign.frameImage);
             ctx.drawImage(frame, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
-            drawTextElements(ctx);
-          };
-          frame.src = campaign.frameImage;
-        } else {
-          drawTextElements(ctx);
+          } catch (e) {
+            console.error('Failed to load frame:', e);
+          }
         }
+        drawTextElements(ctx);
       };
       img.src = userPhoto;
     } else if (campaign.type === 'document' && campaign.backgroundImage) {
       // Document type - draw background
-      const bg = new Image();
-      bg.onload = () => {
+      loadImage(campaign.backgroundImage).then((bg) => {
         ctx.drawImage(bg, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
         drawTextElements(ctx);
-      };
-      bg.src = campaign.backgroundImage;
+      }).catch(console.error);
     } else if (campaign.frameImage) {
       // Just draw the frame
-      const frame = new Image();
-      frame.onload = () => {
+      loadImage(campaign.frameImage).then((frame) => {
         ctx.drawImage(frame, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
         drawTextElements(ctx);
-      };
-      frame.src = campaign.frameImage;
+      }).catch(console.error);
     }
   }, [userPhoto, zoom, rotation, offset, campaign, textElements]);
 
@@ -139,13 +145,23 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
     }
   };
 
-  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  // Get coordinates from mouse or touch event
+  const getEventCoords = (e: React.MouseEvent | React.TouchEvent) => {
+    if ('touches' in e) {
+      return { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY };
+    }
+    return { clientX: e.clientX, clientY: e.clientY };
+  };
+
+  const handleStart = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    const { clientX, clientY } = getEventCoords(e);
     const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) * (CANVAS_SIZE / rect.width);
-    const y = (e.clientY - rect.top) * (CANVAS_SIZE / rect.height);
+    const x = (clientX - rect.left) * (CANVAS_SIZE / rect.width);
+    const y = (clientY - rect.top) * (CANVAS_SIZE / rect.height);
 
     // Check if clicking on a draggable text element
     const clickedText = textElements.find(elem => {
@@ -170,17 +186,19 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
     // Otherwise, drag the photo
     setSelectedText(null);
     setIsDragging(true);
-    setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
+    setDragStart({ x: clientX - offset.x, y: clientY - offset.y });
   };
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleMove = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    const { clientX, clientY } = getEventCoords(e);
+
     if (selectedText) {
       const rect = canvas.getBoundingClientRect();
-      const x = (e.clientX - rect.left) * (CANVAS_SIZE / rect.width);
-      const y = (e.clientY - rect.top) * (CANVAS_SIZE / rect.height);
+      const x = (clientX - rect.left) * (CANVAS_SIZE / rect.width);
+      const y = (clientY - rect.top) * (CANVAS_SIZE / rect.height);
 
       const deltaX = (x - textDragStart.x) * (800 / CANVAS_SIZE);
       const deltaY = (y - textDragStart.y) * (600 / CANVAS_SIZE);
@@ -192,13 +210,13 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
       ));
     } else if (isDragging) {
       setOffset({
-        x: e.clientX - dragStart.x,
-        y: e.clientY - dragStart.y,
+        x: clientX - dragStart.x,
+        y: clientY - dragStart.y,
       });
     }
   };
 
-  const handleMouseUp = () => {
+  const handleEnd = () => {
     setIsDragging(false);
   };
 
@@ -295,12 +313,15 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
             ref={canvasRef}
             width={CANVAS_SIZE}
             height={CANVAS_SIZE}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
+            onMouseDown={handleStart}
+            onMouseMove={handleMove}
+            onMouseUp={handleEnd}
+            onMouseLeave={handleEnd}
+            onTouchStart={handleStart}
+            onTouchMove={handleMove}
+            onTouchEnd={handleEnd}
             className={cn(
-              "rounded-2xl shadow-elevated bg-muted/50 cursor-move max-w-full",
+              "rounded-2xl shadow-elevated bg-muted/50 cursor-move max-w-full touch-none",
               selectedText && "cursor-grab"
             )}
           />
