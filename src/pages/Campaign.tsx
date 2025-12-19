@@ -66,11 +66,8 @@ const CampaignPage = () => {
         setError('Campaign not found');
       } else {
         setCampaign(mapDbToCampaign(data));
-        // Increment views
-        await supabase
-          .from('campaigns')
-          .update({ views: data.views + 1 })
-          .eq('id', id);
+        // Increment views using RPC function (works for anonymous users)
+        supabase.rpc('increment_campaign_views', { campaign_id: id });
       }
       setIsLoading(false);
     };
