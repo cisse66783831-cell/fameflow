@@ -4,11 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { 
   Upload, ZoomIn, ZoomOut, RotateCw, Download, 
-  Share2, Move, Type, GripVertical, FileText 
+  Move, Type, GripVertical, FileText 
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import jsPDF from 'jspdf';
+import { SocialShare } from './SocialShare';
 
 interface PhotoEditorProps {
   campaign: Campaign;
@@ -26,6 +27,7 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
   const [textElements, setTextElements] = useState<TextElement[]>(campaign.textElements);
   const [selectedText, setSelectedText] = useState<string | null>(null);
   const [textDragStart, setTextDragStart] = useState({ x: 0, y: 0, elemX: 0, elemY: 0 });
+  const [imageBlob, setImageBlob] = useState<Blob | null>(null);
 
   const CANVAS_SIZE = 400;
 
@@ -132,6 +134,20 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
   useEffect(() => {
     drawCanvas();
   }, [drawCanvas]);
+
+  // Update blob when canvas changes
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const timer = setTimeout(() => {
+      canvas.toBlob((blob) => {
+        if (blob) setImageBlob(blob);
+      }, 'image/png');
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [userPhoto, zoom, rotation, offset, textElements]);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -270,32 +286,6 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
     
     onDownload();
     toast.success('PDF downloaded!');
-  };
-
-  const handleShare = async () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    try {
-      const blob = await new Promise<Blob>((resolve) => {
-        canvas.toBlob((blob) => resolve(blob!), 'image/png');
-      });
-
-      if (navigator.share) {
-        await navigator.share({
-          title: campaign.title,
-          text: campaign.hashtags.join(' '),
-          files: [new File([blob], 'frameflow.png', { type: 'image/png' })],
-        });
-      } else {
-        await navigator.clipboard.write([
-          new ClipboardItem({ 'image/png': blob })
-        ]);
-        toast.success('Image copied to clipboard!');
-      }
-    } catch (err) {
-      toast.error('Failed to share');
-    }
   };
 
   const updateTextValue = (id: string, value: string) => {
@@ -455,26 +445,25 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
             Download PNG
           </Button>
 
-          {campaign.type === 'document' && (
-            <Button 
-              variant="secondary" 
-              className="w-full"
-              onClick={handleDownloadPDF}
-            >
-              <FileText className="w-4 h-4 mr-2" />
-              Download PDF
-            </Button>
-          )}
-          
           <Button 
-            variant="outline" 
+            variant="secondary" 
             className="w-full"
-            onClick={handleShare}
+            onClick={handleDownloadPDF}
             disabled={campaign.type === 'photo' && !userPhoto}
           >
-            <Share2 className="w-4 h-4 mr-2" />
-            Share
+            <FileText className="w-4 h-4 mr-2" />
+            Download PDF
           </Button>
+        </div>
+
+        {/* Social Share */}
+        <div className="pt-4 border-t border-border">
+          <SocialShare 
+            imageBlob={imageBlob}
+            title={campaign.title}
+            hashtags={campaign.hashtags}
+            shareUrl={`${window.location.origin}/c/${campaign.id}`}
+          />
         </div>
 
         {/* Hashtags */}
