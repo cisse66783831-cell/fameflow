@@ -73,6 +73,74 @@ export type Database = {
           },
         ]
       }
+      events: {
+        Row: {
+          city: string
+          cover_image: string | null
+          created_at: string
+          currency: string | null
+          description: string | null
+          event_date: string
+          frame_image: string
+          id: string
+          is_active: boolean | null
+          max_tickets: number | null
+          qr_position_x: number | null
+          qr_position_y: number | null
+          ticket_price: number | null
+          title: string
+          updated_at: string
+          user_id: string
+          venue: string
+        }
+        Insert: {
+          city: string
+          cover_image?: string | null
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          event_date: string
+          frame_image: string
+          id?: string
+          is_active?: boolean | null
+          max_tickets?: number | null
+          qr_position_x?: number | null
+          qr_position_y?: number | null
+          ticket_price?: number | null
+          title: string
+          updated_at?: string
+          user_id: string
+          venue: string
+        }
+        Update: {
+          city?: string
+          cover_image?: string | null
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          event_date?: string
+          frame_image?: string
+          id?: string
+          is_active?: boolean | null
+          max_tickets?: number | null
+          qr_position_x?: number | null
+          qr_position_y?: number | null
+          ticket_price?: number | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+          venue?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -99,6 +167,57 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      public_visuals: {
+        Row: {
+          created_at: string
+          creator_name: string
+          creator_photo: string | null
+          event_id: string
+          id: string
+          is_approved: boolean | null
+          user_id: string | null
+          views: number | null
+          visual_url: string
+        }
+        Insert: {
+          created_at?: string
+          creator_name: string
+          creator_photo?: string | null
+          event_id: string
+          id?: string
+          is_approved?: boolean | null
+          user_id?: string | null
+          views?: number | null
+          visual_url: string
+        }
+        Update: {
+          created_at?: string
+          creator_name?: string
+          creator_photo?: string | null
+          event_id?: string
+          id?: string
+          is_approved?: boolean | null
+          user_id?: string | null
+          views?: number | null
+          visual_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "public_visuals_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "public_visuals_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
