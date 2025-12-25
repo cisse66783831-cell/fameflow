@@ -1,10 +1,11 @@
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { Header } from '@/components/Header';
 import { TicketWallet } from '@/components/TicketWallet';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { ArrowLeft, Ticket, LogIn } from 'lucide-react';
+import { Ticket, LogIn } from 'lucide-react';
 
 export default function WalletPage() {
   const navigate = useNavigate();
@@ -18,29 +19,9 @@ export default function WalletPage() {
       </Helmet>
 
       <div className="min-h-screen bg-background">
-        {/* Header */}
-        <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border/50">
-          <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate(-1)}
-              className="gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Retour
-            </Button>
+        <Header />
 
-            <h1 className="text-lg font-semibold font-display flex items-center gap-2">
-              <Ticket className="w-5 h-5 text-primary" />
-              Mon Wallet
-            </h1>
-
-            <div className="w-20" /> {/* Spacer */}
-          </div>
-        </header>
-
-        <main className="container mx-auto px-6 py-8 max-w-2xl">
+        <main className="container mx-auto px-6 py-8 pt-24 max-w-2xl">
           {!user && !isLoading ? (
             <Card className="p-8 text-center">
               <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center mb-4">

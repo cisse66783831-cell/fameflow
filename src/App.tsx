@@ -11,6 +11,7 @@ import Auth from "./pages/Auth";
 import DashboardPage from "./pages/Index";
 import CampaignPage from "./pages/Campaign";
 import EventsPage from "./pages/Events";
+import AdminEventsPage from "./pages/AdminEvents";
 import WalletPage from "./pages/Wallet";
 import ScannerPage from "./pages/Scanner";
 import TicketPurchasePage from "./pages/TicketPurchase";
@@ -41,6 +42,7 @@ const App = () => (
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/events" element={<EventsPage />} />
                 <Route path="/wallet" element={<WalletPage />} />
+                <Route path="/admin/events" element={<AdminEventsPage />} />
                 <Route path="/scanner" element={<ScannerPage />} />
                 <Route path="/event/:eventId/ticket" element={<TicketPurchasePage />} />
                 <Route path="/c/:id" element={<CampaignPage />} />

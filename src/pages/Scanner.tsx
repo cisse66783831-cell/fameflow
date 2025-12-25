@@ -1,15 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRoles } from '@/hooks/useUserRoles';
 import { useEvents } from '@/hooks/useEvents';
+import { Header } from '@/components/Header';
 import { TicketScanner } from '@/components/TicketScanner';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Event } from '@/types/event';
-import { ArrowLeft, QrCode, Calendar, MapPin, Lock, LogIn } from 'lucide-react';
+import { QrCode, Calendar, MapPin, Lock, LogIn } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -38,29 +39,9 @@ export default function ScannerPage() {
       </Helmet>
 
       <div className="min-h-screen bg-background">
-        {/* Header */}
-        <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border/50">
-          <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate(-1)}
-              className="gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Retour
-            </Button>
+        <Header />
 
-            <h1 className="text-lg font-semibold font-display flex items-center gap-2">
-              <QrCode className="w-5 h-5 text-primary" />
-              Scanner
-            </h1>
-
-            <div className="w-20" /> {/* Spacer */}
-          </div>
-        </header>
-
-        <main className="container mx-auto px-6 py-8 max-w-2xl space-y-6">
+        <main className="container mx-auto px-6 py-8 pt-24 max-w-2xl space-y-6">
           {isLoading ? (
             <div className="space-y-4">
               {Array.from({ length: 3 }).map((_, i) => (

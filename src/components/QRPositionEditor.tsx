@@ -9,8 +9,10 @@ interface QRPositionEditorProps {
   frameImage: string;
   initialX?: number;
   initialY?: number;
-  onSave: (x: number, y: number) => void;
+  onSave?: (x: number, y: number) => void;
+  onChange?: (x: number, y: number) => void;
   onCancel?: () => void;
+  showActions?: boolean;
 }
 
 export function QRPositionEditor({
@@ -18,7 +20,9 @@ export function QRPositionEditor({
   initialX = 50,
   initialY = 50,
   onSave,
+  onChange,
   onCancel,
+  showActions = true,
 }: QRPositionEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: initialX, y: initialY });
@@ -38,10 +42,10 @@ export function QRPositionEditor({
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
 
-    setPosition({
-      x: Math.max(5, Math.min(95, x)),
-      y: Math.max(5, Math.min(95, y)),
-    });
+    const newX = Math.max(5, Math.min(95, x));
+    const newY = Math.max(5, Math.min(95, y));
+    setPosition({ x: newX, y: newY });
+    onChange?.(Math.round(newX), Math.round(newY));
   };
 
   const handleMouseUp = () => {
@@ -57,10 +61,10 @@ export function QRPositionEditor({
     const x = ((touch.clientX - rect.left) / rect.width) * 100;
     const y = ((touch.clientY - rect.top) / rect.height) * 100;
 
-    setPosition({
-      x: Math.max(5, Math.min(95, x)),
-      y: Math.max(5, Math.min(95, y)),
-    });
+    const newX = Math.max(5, Math.min(95, x));
+    const newY = Math.max(5, Math.min(95, y));
+    setPosition({ x: newX, y: newY });
+    onChange?.(Math.round(newX), Math.round(newY));
   };
 
   const handleReset = () => {
@@ -182,32 +186,36 @@ export function QRPositionEditor({
       )}
 
       {/* Actions */}
-      <div className="flex gap-3">
-        <Button
-          variant="outline"
-          onClick={handleReset}
-          className="flex-1 gap-2"
-        >
-          <RotateCcw className="w-4 h-4" />
-          Réinitialiser
-        </Button>
-        {onCancel && (
+      {showActions && (
+        <div className="flex gap-3">
           <Button
-            variant="ghost"
-            onClick={onCancel}
-            className="flex-1"
+            variant="outline"
+            onClick={handleReset}
+            className="flex-1 gap-2"
           >
-            Annuler
+            <RotateCcw className="w-4 h-4" />
+            Réinitialiser
           </Button>
-        )}
-        <Button
-          onClick={() => onSave(Math.round(position.x), Math.round(position.y))}
-          className="flex-1 gap-2 gradient-primary text-white"
-        >
-          <Save className="w-4 h-4" />
-          Enregistrer
-        </Button>
-      </div>
+          {onCancel && (
+            <Button
+              variant="ghost"
+              onClick={onCancel}
+              className="flex-1"
+            >
+              Annuler
+            </Button>
+          )}
+          {onSave && (
+            <Button
+              onClick={() => onSave(Math.round(position.x), Math.round(position.y))}
+              className="flex-1 gap-2 gradient-primary text-white"
+            >
+              <Save className="w-4 h-4" />
+              Enregistrer
+            </Button>
+          )}
+        </div>
+      )}
     </Card>
   );
 }
