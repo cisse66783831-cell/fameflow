@@ -15,7 +15,7 @@ import { fr } from 'date-fns/locale';
 
 export default function ScannerPage() {
   const navigate = useNavigate();
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { isScanner, isLoading: rolesLoading } = useUserRoles();
   const { events, isLoading: eventsLoading } = useEvents();
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);

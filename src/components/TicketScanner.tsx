@@ -62,10 +62,7 @@ export function TicketScanner({ event, isOpen, onClose }: TicketScannerProps) {
       // Find ticket by QR code
       const { data: ticket, error } = await supabase
         .from('tickets')
-        .select(`
-          *,
-          owner:profiles!tickets_owner_id_fkey(full_name)
-        `)
+        .select('*')
         .eq('qr_code', qrCode.trim())
         .eq('event_id', event.id)
         .maybeSingle();
@@ -82,7 +79,7 @@ export function TicketScanner({ event, isOpen, onClose }: TicketScannerProps) {
 
       const ticketWithOwner = {
         ...ticket,
-        owner_name: ticket.owner?.full_name || ticket.recipient_name || 'Anonyme',
+        owner_name: ticket.recipient_name || 'Anonyme',
       } as Ticket & { owner_name: string };
 
       if (ticket.status === 'used') {
