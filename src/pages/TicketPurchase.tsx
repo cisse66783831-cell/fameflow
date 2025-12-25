@@ -4,7 +4,7 @@ import { Helmet } from 'react-helmet-async';
 import { supabase } from '@/integrations/supabase/client';
 import { Event } from '@/types/event';
 import { TicketPurchaseModal } from '@/components/TicketPurchaseModal';
-import { LoadingScreen } from '@/components/LoadingScreen';
+import LoadingScreen from '@/components/LoadingScreen';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 

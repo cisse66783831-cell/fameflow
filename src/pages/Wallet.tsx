@@ -8,7 +8,7 @@ import { ArrowLeft, Ticket, LogIn } from 'lucide-react';
 
 export default function WalletPage() {
   const navigate = useNavigate();
-  const { user, isLoading } = useAuth();
+  const { user, loading: isLoading } = useAuth();
 
   return (
     <>

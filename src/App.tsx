@@ -11,6 +11,9 @@ import Auth from "./pages/Auth";
 import DashboardPage from "./pages/Index";
 import CampaignPage from "./pages/Campaign";
 import EventsPage from "./pages/Events";
+import WalletPage from "./pages/Wallet";
+import ScannerPage from "./pages/Scanner";
+import TicketPurchasePage from "./pages/TicketPurchase";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -37,6 +40,9 @@ const App = () => (
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/events" element={<EventsPage />} />
+                <Route path="/wallet" element={<WalletPage />} />
+                <Route path="/scanner" element={<ScannerPage />} />
+                <Route path="/event/:eventId/ticket" element={<TicketPurchasePage />} />
                 <Route path="/c/:id" element={<CampaignPage />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
