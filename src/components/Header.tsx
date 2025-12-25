@@ -1,9 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { useUserRoles } from '@/hooks/useUserRoles';
 import { 
-  Sparkles, LogOut, User, Calendar, Ticket, ScanLine, LayoutDashboard, Plus
+  Sparkles, LogOut, User, Calendar, Ticket, ScanLine, LayoutDashboard, Plus, Home
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -17,7 +16,6 @@ export function Header() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signOut } = useAuth();
-  const { isPromoter, isScanner } = useUserRoles();
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -40,6 +38,16 @@ export function Header() {
         {/* Navigation Links */}
         <div className="flex items-center gap-1 md:gap-2">
           <Button 
+            variant={isActive('/') ? 'secondary' : 'ghost'} 
+            size="sm"
+            onClick={() => navigate('/')}
+            className="hidden sm:flex"
+          >
+            <Home className="w-4 h-4 mr-1" />
+            Accueil
+          </Button>
+
+          <Button 
             variant={isActive('/events') ? 'secondary' : 'ghost'} 
             size="sm"
             onClick={() => navigate('/events')}
@@ -51,39 +59,26 @@ export function Header() {
 
           {user ? (
             <>
-              {/* Promoter/Admin Links */}
-              {isPromoter && (
-                <>
-                  <Button 
-                    variant={isActive('/dashboard') ? 'secondary' : 'ghost'}
-                    size="sm"
-                    onClick={() => navigate('/dashboard')}
-                  >
-                    <LayoutDashboard className="w-4 h-4 md:mr-1" />
-                    <span className="hidden md:inline">Dashboard</span>
-                  </Button>
-                  <Button 
-                    variant={isActive('/admin/events') ? 'secondary' : 'ghost'}
-                    size="sm"
-                    onClick={() => navigate('/admin/events')}
-                  >
-                    <Plus className="w-4 h-4 md:mr-1" />
-                    <span className="hidden md:inline">Gérer</span>
-                  </Button>
-                </>
-              )}
+              {/* My Events - accessible to all logged in users */}
+              <Button 
+                variant={isActive('/admin/events') ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => navigate('/admin/events')}
+              >
+                <LayoutDashboard className="w-4 h-4 md:mr-1" />
+                <span className="hidden md:inline">Mes événements</span>
+              </Button>
 
-              {/* Scanner Link */}
-              {isScanner && (
-                <Button 
-                  variant={isActive('/scanner') ? 'secondary' : 'ghost'}
-                  size="sm"
-                  onClick={() => navigate('/scanner')}
-                >
-                  <ScanLine className="w-4 h-4 md:mr-1" />
-                  <span className="hidden md:inline">Scanner</span>
-                </Button>
-              )}
+              {/* Scanner Link - always visible for logged in users */}
+              <Button 
+                variant={isActive('/scanner') ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => navigate('/scanner')}
+                className="hidden md:flex"
+              >
+                <ScanLine className="w-4 h-4 mr-1" />
+                <span className="hidden lg:inline">Scanner</span>
+              </Button>
 
               {/* Wallet */}
               <Button 
@@ -103,16 +98,27 @@ export function Header() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => navigate('/')}>
+                    <Home className="w-4 h-4 mr-2" />
+                    Accueil
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/events')}>
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Événements
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate('/wallet')}>
                     <Ticket className="w-4 h-4 mr-2" />
                     Mes tickets
                   </DropdownMenuItem>
-                  {isPromoter && (
-                    <DropdownMenuItem onClick={() => navigate('/admin/events')}>
-                      <Calendar className="w-4 h-4 mr-2" />
-                      Mes événements
-                    </DropdownMenuItem>
-                  )}
+                  <DropdownMenuItem onClick={() => navigate('/admin/events')}>
+                    <LayoutDashboard className="w-4 h-4 mr-2" />
+                    Mes événements
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/scanner')}>
+                    <ScanLine className="w-4 h-4 mr-2" />
+                    Scanner
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 
                     onClick={() => signOut()} 
