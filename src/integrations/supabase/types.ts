@@ -219,18 +219,190 @@ export type Database = {
           },
         ]
       }
+      tickets: {
+        Row: {
+          created_at: string
+          currency: string
+          event_id: string
+          id: string
+          is_gift: boolean
+          owner_id: string | null
+          price: number
+          purchaser_id: string
+          qr_code: string
+          recipient_email: string | null
+          recipient_name: string | null
+          recipient_phone: string | null
+          scanned_at: string | null
+          scanned_by: string | null
+          status: Database["public"]["Enums"]["ticket_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          event_id: string
+          id?: string
+          is_gift?: boolean
+          owner_id?: string | null
+          price: number
+          purchaser_id: string
+          qr_code: string
+          recipient_email?: string | null
+          recipient_name?: string | null
+          recipient_phone?: string | null
+          scanned_at?: string | null
+          scanned_by?: string | null
+          status?: Database["public"]["Enums"]["ticket_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          event_id?: string
+          id?: string
+          is_gift?: boolean
+          owner_id?: string | null
+          price?: number
+          purchaser_id?: string
+          qr_code?: string
+          recipient_email?: string | null
+          recipient_name?: string | null
+          recipient_phone?: string | null
+          scanned_at?: string | null
+          scanned_by?: string | null
+          status?: Database["public"]["Enums"]["ticket_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tickets_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          id: string
+          metadata: Json | null
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          payment_phone: string | null
+          payment_reference: string | null
+          status: string
+          ticket_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string
+          id?: string
+          metadata?: Json | null
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          payment_phone?: string | null
+          payment_reference?: string | null
+          status?: string
+          ticket_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          metadata?: Json | null
+          payment_method?: Database["public"]["Enums"]["payment_method"]
+          payment_phone?: string | null
+          payment_reference?: string | null
+          status?: string
+          ticket_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          event_id: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      generate_ticket_qr_code: { Args: never; Returns: string }
+      has_role: {
+        Args: {
+          _event_id?: string
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       increment_campaign_views: {
         Args: { campaign_id: string }
         Returns: undefined
       }
+      is_admin_or_promoter: { Args: { _user_id: string }; Returns: boolean }
+      is_event_staff: {
+        Args: { _event_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "promoter" | "staff" | "scanner" | "user"
+      payment_method:
+        | "orange_money"
+        | "mtn_money"
+        | "moov_money"
+        | "wave"
+        | "card"
+        | "free"
+      ticket_status: "pending" | "paid" | "used" | "cancelled" | "expired"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -357,6 +529,17 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "promoter", "staff", "scanner", "user"],
+      payment_method: [
+        "orange_money",
+        "mtn_money",
+        "moov_money",
+        "wave",
+        "card",
+        "free",
+      ],
+      ticket_status: ["pending", "paid", "used", "cancelled", "expired"],
+    },
   },
 } as const
