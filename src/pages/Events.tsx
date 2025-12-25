@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { useEvents } from '@/hooks/useEvents';
 import { usePublicVisuals } from '@/hooks/usePublicVisuals';
+import { Header } from '@/components/Header';
 import { SocialWall } from '@/components/SocialWall';
 import { EventCard } from '@/components/EventCard';
 import { VisualGenerator } from '@/components/VisualGenerator';
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Event } from '@/types/event';
-import { Sparkles, Calendar, Users, Ticket, TrendingUp } from 'lucide-react';
+import { Calendar, Users, TrendingUp, Camera, Heart, Sparkles } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
 
@@ -25,7 +25,6 @@ export default function EventsPage() {
   };
 
   const handleBuyTicket = (eventId: string) => {
-    // TODO: Navigate to ticket purchase page
     navigate(`/event/${eventId}/ticket`);
   };
 
@@ -37,8 +36,10 @@ export default function EventsPage() {
       </Helmet>
 
       <div className="min-h-screen bg-background">
+        <Header />
+
         {/* Hero Section */}
-        <section className="relative pt-20 pb-16 px-6 overflow-hidden">
+        <section className="relative pt-24 pb-16 px-6 overflow-hidden">
           {/* Background Effects */}
           <div className="absolute inset-0 overflow-hidden">
             <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-[100px] animate-pulse-soft" />
@@ -47,37 +48,38 @@ export default function EventsPage() {
 
           <div className="container mx-auto relative z-10">
             <div className="text-center max-w-3xl mx-auto">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-6 animate-fade-in">
-                <TrendingUp className="w-4 h-4" />
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 border border-accent/20 text-accent text-sm font-medium mb-6 animate-fade-in">
+                <Heart className="w-4 h-4 fill-current" />
                 <span>{visuals.length} personnes ont partagé leur enthousiasme</span>
               </div>
 
               <h1 className="text-4xl md:text-6xl font-bold font-display mb-6 animate-slide-up">
-                Événements{' '}
-                <span className="text-gradient-neon">Exclusifs</span>
+                Créez votre{' '}
+                <span className="text-gradient-neon">"J'y serai"</span>
               </h1>
 
               <p className="text-lg text-muted-foreground mb-8 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-                Créez votre visuel "J'y serai" et partagez-le sur vos réseaux.
-                Montrez au monde que vous serez là !
+                Choisissez un événement, ajoutez votre photo sur le cadre officiel
+                et montrez au monde que vous y serez !
               </p>
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 max-w-2xl mx-auto mt-12 animate-slide-up" style={{ animationDelay: '0.2s' }}>
-              <div className="text-center p-4 rounded-2xl bg-card border border-border/50">
+            <div className="grid grid-cols-3 gap-4 max-w-2xl mx-auto mt-8 animate-slide-up" style={{ animationDelay: '0.2s' }}>
+              <div className="text-center p-4 rounded-2xl bg-card border border-border/50 hover:border-accent/30 transition-all">
                 <div className="text-2xl md:text-3xl font-bold text-primary mb-1">
                   {events.length}
                 </div>
                 <div className="text-xs text-muted-foreground">Événements</div>
               </div>
-              <div className="text-center p-4 rounded-2xl bg-card border border-border/50">
-                <div className="text-2xl md:text-3xl font-bold text-accent mb-1">
+              <div className="text-center p-4 rounded-2xl bg-card border border-accent/30 shadow-neon-cyan hover:shadow-glow transition-all">
+                <div className="text-2xl md:text-3xl font-bold text-accent mb-1 flex items-center justify-center gap-1">
+                  <Camera className="w-5 h-5" />
                   {visuals.length}
                 </div>
-                <div className="text-xs text-muted-foreground">Visuels créés</div>
+                <div className="text-xs text-muted-foreground">"J'y serai" créés</div>
               </div>
-              <div className="text-center p-4 rounded-2xl bg-card border border-border/50">
+              <div className="text-center p-4 rounded-2xl bg-card border border-border/50 hover:border-primary/30 transition-all">
                 <div className="text-2xl md:text-3xl font-bold text-success mb-1">
                   🔥
                 </div>
@@ -92,9 +94,9 @@ export default function EventsPage() {
           <div className="container mx-auto">
             <Tabs defaultValue="wall" className="space-y-8">
               <TabsList className="w-full max-w-md mx-auto grid grid-cols-2 bg-secondary p-1 rounded-xl">
-                <TabsTrigger value="wall" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg">
+                <TabsTrigger value="wall" className="flex items-center gap-2 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground rounded-lg">
                   <Users className="w-4 h-4" />
-                  Mur Social
+                  Mur "J'y serai"
                 </TabsTrigger>
                 <TabsTrigger value="events" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg">
                   <Calendar className="w-4 h-4" />
@@ -106,9 +108,15 @@ export default function EventsPage() {
               <TabsContent value="wall" className="animate-fade-in">
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-2xl font-bold font-display">
-                      Ils y seront ! 🎉
-                    </h2>
+                    <div>
+                      <h2 className="text-2xl font-bold font-display flex items-center gap-2">
+                        <Sparkles className="w-6 h-6 text-accent" />
+                        Ils y seront !
+                      </h2>
+                      <p className="text-muted-foreground text-sm mt-1">
+                        Découvrez les visuels créés par la communauté
+                      </p>
+                    </div>
                   </div>
                   
                   <SocialWall onBuyTicket={handleBuyTicket} />
@@ -118,9 +126,14 @@ export default function EventsPage() {
               {/* Events Tab */}
               <TabsContent value="events" className="animate-fade-in">
                 <div className="space-y-6">
-                  <h2 className="text-2xl font-bold font-display">
-                    Événements à venir
-                  </h2>
+                  <div>
+                    <h2 className="text-2xl font-bold font-display">
+                      Événements à venir
+                    </h2>
+                    <p className="text-muted-foreground text-sm mt-1">
+                      Choisissez un événement pour créer votre visuel "J'y serai"
+                    </p>
+                  </div>
 
                   {eventsLoading ? (
                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
