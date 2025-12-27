@@ -15,6 +15,9 @@ import AdminEventsPage from "./pages/AdminEvents";
 import WalletPage from "./pages/Wallet";
 import ScannerPage from "./pages/Scanner";
 import TicketPurchasePage from "./pages/TicketPurchase";
+import SuperAdminPage from "./pages/SuperAdmin";
+import VideoFiltersPage from "./pages/VideoFilters";
+import CampaignBySlugPage from "./pages/CampaignBySlug";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -45,7 +48,10 @@ const App = () => (
                 <Route path="/admin/events" element={<AdminEventsPage />} />
                 <Route path="/scanner" element={<ScannerPage />} />
                 <Route path="/event/:eventId/ticket" element={<TicketPurchasePage />} />
+                <Route path="/super-admin" element={<SuperAdminPage />} />
+                <Route path="/filters" element={<VideoFiltersPage />} />
                 <Route path="/c/:id" element={<CampaignPage />} />
+                <Route path="/:slug" element={<CampaignBySlugPage />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>

@@ -31,7 +31,7 @@ export function Header() {
             <Sparkles className="w-5 h-5 text-white" />
           </div>
           <span className="text-xl font-bold font-display text-gradient-neon hidden sm:block">
-            FameFlow
+            Jyserai
           </span>
         </button>
 

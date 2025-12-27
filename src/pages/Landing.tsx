@@ -232,9 +232,12 @@ export default function Landing() {
         <div className="container mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-lg gradient-neon"><Sparkles className="w-4 h-4 text-white" /></div>
-            <span className="font-semibold text-gradient-neon">FameFlow</span>
+            <span className="font-semibold text-gradient-neon">Jyserai</span>
           </div>
           <div className="flex items-center gap-6 text-sm text-muted-foreground">
+            <button onClick={() => navigate('/filters')} className="hover:text-primary transition-colors">
+              Filtres Vidéo
+            </button>
             <button onClick={() => navigate('/events')} className="hover:text-primary transition-colors">
               Événements
             </button>
@@ -242,7 +245,7 @@ export default function Landing() {
               Connexion
             </button>
           </div>
-          <p className="text-sm text-muted-foreground">© 2024 FameFlow</p>
+          <p className="text-sm text-muted-foreground">© 2024 Jyserai</p>
         </div>
       </footer>
     </div>
