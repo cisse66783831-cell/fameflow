@@ -2,15 +2,15 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Campaign, TextElement } from '@/types/campaign';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { 
-  Upload, ZoomIn, ZoomOut, RotateCw, Download, 
-  Move, Type, GripVertical, FileText 
+import {
+  Upload, ZoomIn, ZoomOut, RotateCw, Download,
+  Move, Type, GripVertical, FileText
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { getCampaignPublicUrl } from '@/lib/publicUrls';
 import jsPDF from 'jspdf';
 import { SocialShare } from './SocialShare';
-
 interface PhotoEditorProps {
   campaign: Campaign;
   onDownload: () => void;
@@ -462,7 +462,7 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
             imageBlob={imageBlob}
             title={campaign.title}
             hashtags={campaign.hashtags}
-            shareUrl={`${window.location.origin}/c/${campaign.id}`}
+            shareUrl={getCampaignPublicUrl(campaign)}
           />
         </div>
 

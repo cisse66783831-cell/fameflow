@@ -4,17 +4,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { QrCode, Download, Copy, Check } from 'lucide-react';
 import { useState, useRef } from 'react';
 import { toast } from 'sonner';
+import { getCampaignPublicUrl } from '@/lib/publicUrls';
 
 interface QRCodeShareProps {
   campaignId: string;
   campaignTitle: string;
+  campaignSlug?: string;
 }
 
-export const QRCodeShare = ({ campaignId, campaignTitle }: QRCodeShareProps) => {
+export const QRCodeShare = ({ campaignId, campaignTitle, campaignSlug }: QRCodeShareProps) => {
   const [copied, setCopied] = useState(false);
   const qrRef = useRef<HTMLDivElement>(null);
-  
-  const shareUrl = `${window.location.origin}/c/${campaignId}`;
+
+  const shareUrl = getCampaignPublicUrl({ id: campaignId, slug: campaignSlug });
 
   const handleCopy = async () => {
     try {

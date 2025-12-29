@@ -1,11 +1,11 @@
 import { Campaign } from '@/types/campaign';
-import { Eye, Download, Image, FileText, Trash2, Play, Share2, Copy, Check, QrCode, Pencil, Video } from 'lucide-react';
+import { Eye, Download, Image, FileText, Trash2, Play, Share2, Copy, Check, Pencil, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { getCampaignPublicUrl } from '@/lib/publicUrls';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { QRCodeShare } from './QRCodeShare';
-
 interface CampaignCardProps {
   campaign: Campaign;
   onSelect: (campaign: Campaign) => void;
@@ -23,9 +23,7 @@ export const CampaignCard = ({ campaign, onSelect, onDelete, onEdit, index }: Ca
       ? campaign.frameImage 
       : campaign.backgroundImage;
 
-  const shareUrl = campaign.slug 
-    ? `https://jyserai.site/${campaign.slug}`
-    : `${window.location.origin}/c/${campaign.id}`;
+  const shareUrl = getCampaignPublicUrl(campaign);
 
   const handleCopyLink = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -189,7 +187,7 @@ export const CampaignCard = ({ campaign, onSelect, onDelete, onEdit, index }: Ca
             </div>
           )}
           <div onClick={(e) => e.stopPropagation()}>
-            <QRCodeShare campaignId={campaign.id} campaignTitle={campaign.title} />
+            <QRCodeShare campaignId={campaign.id} campaignTitle={campaign.title} campaignSlug={campaign.slug} />
           </div>
         </div>
       </div>
