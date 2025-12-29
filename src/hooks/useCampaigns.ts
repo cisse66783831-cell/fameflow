@@ -12,6 +12,8 @@ const mapDbToCampaign = (db: {
   description: string | null;
   type: string;
   frame_image: string;
+  frame_image_portrait: string | null;
+  frame_image_landscape: string | null;
   background_image: string | null;
   text_elements: Json;
   hashtags: string[];
@@ -20,12 +22,15 @@ const mapDbToCampaign = (db: {
   is_demo: boolean;
   created_at: string;
   updated_at: string;
+  slug: string | null;
 }): Campaign => ({
   id: db.id,
   title: db.title,
   description: db.description || '',
-  type: db.type as 'photo' | 'document',
+  type: db.type as 'photo' | 'document' | 'video_filter',
   frameImage: db.frame_image,
+  frameImagePortrait: db.frame_image_portrait || undefined,
+  frameImageLandscape: db.frame_image_landscape || undefined,
   backgroundImage: db.background_image || undefined,
   textElements: db.text_elements as unknown as TextElement[],
   hashtags: db.hashtags,
@@ -33,6 +38,7 @@ const mapDbToCampaign = (db: {
   downloads: db.downloads,
   createdAt: new Date(db.created_at),
   isDemo: db.is_demo,
+  slug: db.slug || undefined,
 });
 
 export const useCampaigns = () => {
@@ -77,12 +83,15 @@ export const useCampaigns = () => {
         description: campaign.description,
         type: campaign.type,
         frame_image: campaign.frameImage,
+        frame_image_portrait: campaign.frameImagePortrait || null,
+        frame_image_landscape: campaign.frameImageLandscape || null,
         background_image: campaign.backgroundImage || null,
         text_elements: campaign.textElements as unknown as Json,
         hashtags: campaign.hashtags,
         views: campaign.views,
         downloads: campaign.downloads,
         is_demo: campaign.isDemo || false,
+        slug: campaign.slug || null,
       })
       .select()
       .single();
@@ -90,7 +99,7 @@ export const useCampaigns = () => {
     if (error) {
       console.error('Error adding campaign:', error);
     } else if (data) {
-      setCampaigns(prev => [mapDbToCampaign(data), ...prev]);
+      setCampaigns(prev => [mapDbToCampaign(data as any), ...prev]);
     }
     return campaign;
   }, [user]);
@@ -101,11 +110,14 @@ export const useCampaigns = () => {
     if (updates.description !== undefined) dbUpdates.description = updates.description;
     if (updates.type !== undefined) dbUpdates.type = updates.type;
     if (updates.frameImage !== undefined) dbUpdates.frame_image = updates.frameImage;
+    if (updates.frameImagePortrait !== undefined) dbUpdates.frame_image_portrait = updates.frameImagePortrait;
+    if (updates.frameImageLandscape !== undefined) dbUpdates.frame_image_landscape = updates.frameImageLandscape;
     if (updates.backgroundImage !== undefined) dbUpdates.background_image = updates.backgroundImage;
     if (updates.textElements !== undefined) dbUpdates.text_elements = updates.textElements;
     if (updates.hashtags !== undefined) dbUpdates.hashtags = updates.hashtags;
     if (updates.views !== undefined) dbUpdates.views = updates.views;
     if (updates.downloads !== undefined) dbUpdates.downloads = updates.downloads;
+    if (updates.slug !== undefined) dbUpdates.slug = updates.slug;
 
     const { error } = await supabase
       .from('campaigns')

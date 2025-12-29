@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Campaign } from '@/types/campaign';
 import { Button } from '@/components/ui/button';
 import { 
@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Image, FileText, Upload, Sparkles, X, Loader2, Wand2 } from 'lucide-react';
+import { Image, FileText, Upload, Sparkles, X, Loader2, Wand2, Video, AlertCircle, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useStorage } from '@/hooks/useStorage';
@@ -19,27 +19,80 @@ interface CreateCampaignModalProps {
   onCreate: (campaign: Campaign) => void;
 }
 
+const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
+
 export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignModalProps) => {
   const [step, setStep] = useState<'type' | 'details'>('type');
-  const [type, setType] = useState<'photo' | 'document'>('photo');
+  const [type, setType] = useState<'photo' | 'document' | 'video_filter'>('photo');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [hashtags, setHashtags] = useState('');
   const [frameImage, setFrameImage] = useState<string>('');
+  const [frameImagePortrait, setFrameImagePortrait] = useState<string>('');
+  const [frameImageLandscape, setFrameImageLandscape] = useState<string>('');
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [portraitFile, setPortraitFile] = useState<File | null>(null);
+  const [landscapeFile, setLandscapeFile] = useState<File | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingHashtags, setIsGeneratingHashtags] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [slug, setSlug] = useState('');
+  const [isCheckingSlug, setIsCheckingSlug] = useState(false);
+  const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
   const { uploadImage } = useStorage();
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setImageFile(file);
-      const previewUrl = URL.createObjectURL(file);
-      setFrameImage(previewUrl);
-      toast.success('Image selected!');
+  // Debounced slug check
+  useEffect(() => {
+    if (!slug.trim()) {
+      setSlugAvailable(null);
+      return;
     }
+
+    const timer = setTimeout(async () => {
+      setIsCheckingSlug(true);
+      try {
+        const { data, error } = await supabase
+          .rpc('check_slug_availability', { check_slug: slug.toLowerCase().trim() });
+        
+        if (error) throw error;
+        setSlugAvailable(data);
+      } catch (error) {
+        console.error('Error checking slug:', error);
+        setSlugAvailable(null);
+      }
+      setIsCheckingSlug(false);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [slug]);
+
+  const validateFileSize = (file: File): boolean => {
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error(`Le fichier doit faire moins de 2 Mo. Taille actuelle: ${(file.size / 1024 / 1024).toFixed(2)} Mo`);
+      return false;
+    }
+    return true;
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'main' | 'portrait' | 'landscape') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (!validateFileSize(file)) return;
+
+    const previewUrl = URL.createObjectURL(file);
+    
+    if (target === 'main') {
+      setImageFile(file);
+      setFrameImage(previewUrl);
+    } else if (target === 'portrait') {
+      setPortraitFile(file);
+      setFrameImagePortrait(previewUrl);
+    } else {
+      setLandscapeFile(file);
+      setFrameImageLandscape(previewUrl);
+    }
+    toast.success('Image sélectionnée!');
   };
 
   const generateWithAI = async () => {
@@ -59,21 +112,20 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
           setDescription(parsed.description || '');
           setHashtags(parsed.hashtags || '');
         } catch {
-          // If not JSON, use as title
           setTitle(result.slice(0, 50));
         }
-        toast.success('Generated with AI!');
+        toast.success('Généré avec l\'IA!');
       }
     } catch (error) {
       console.error('AI generation error:', error);
-      toast.error('Failed to generate. Try again.');
+      toast.error('Échec de la génération. Réessayez.');
     }
     setIsGenerating(false);
   };
 
   const generateHashtags = async () => {
     if (!title.trim()) {
-      toast.error('Please enter a title first');
+      toast.error('Veuillez d\'abord entrer un titre');
       return;
     }
     
@@ -91,53 +143,93 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
       
       if (data?.result) {
         setHashtags(data.result);
-        toast.success('Hashtags generated!');
+        toast.success('Hashtags générés!');
       }
     } catch (error) {
       console.error('Hashtag generation error:', error);
-      toast.error('Failed to generate hashtags');
+      toast.error('Échec de la génération des hashtags');
     }
     setIsGeneratingHashtags(false);
   };
 
   const handleCreate = async () => {
     if (!title.trim()) {
-      toast.error('Please enter a title');
+      toast.error('Veuillez entrer un titre');
       return;
     }
-    if (!imageFile) {
-      toast.error('Please upload an image');
+
+    // Validate based on type
+    if (type === 'video_filter') {
+      if (!portraitFile && !landscapeFile) {
+        toast.error('Veuillez uploader au moins un cadre (portrait ou paysage)');
+        return;
+      }
+    } else {
+      if (!imageFile) {
+        toast.error('Veuillez uploader une image');
+        return;
+      }
+    }
+
+    // Validate slug if provided
+    if (slug.trim() && slugAvailable === false) {
+      toast.error('Ce lien personnalisé est déjà pris');
       return;
     }
 
     setIsUploading(true);
     
-    // Upload image to Supabase Storage
-    const uploadedUrl = await uploadImage(imageFile, type === 'photo' ? 'frames' : 'documents');
-    
-    if (!uploadedUrl) {
-      toast.error('Failed to upload image');
+    try {
+      let uploadedUrl = '';
+      let uploadedPortraitUrl = '';
+      let uploadedLandscapeUrl = '';
+
+      if (type === 'video_filter') {
+        // Upload portrait and landscape frames
+        if (portraitFile) {
+          uploadedPortraitUrl = await uploadImage(portraitFile, 'filters/portrait') || '';
+        }
+        if (landscapeFile) {
+          uploadedLandscapeUrl = await uploadImage(landscapeFile, 'filters/landscape') || '';
+        }
+        // Use portrait as main if available, otherwise landscape
+        uploadedUrl = uploadedPortraitUrl || uploadedLandscapeUrl;
+      } else {
+        // Upload main image
+        uploadedUrl = await uploadImage(imageFile!, type === 'photo' ? 'frames' : 'documents') || '';
+      }
+
+      if (!uploadedUrl) {
+        toast.error('Échec de l\'upload de l\'image');
+        setIsUploading(false);
+        return;
+      }
+
+      const campaign: Campaign = {
+        id: `campaign-${Date.now()}`,
+        title: title.trim(),
+        description: description.trim(),
+        type,
+        frameImage: uploadedUrl,
+        frameImagePortrait: uploadedPortraitUrl || undefined,
+        frameImageLandscape: uploadedLandscapeUrl || undefined,
+        textElements: [],
+        hashtags: hashtags.split(' ').filter(h => h.startsWith('#')),
+        views: 0,
+        downloads: 0,
+        createdAt: new Date(),
+        slug: slug.trim().toLowerCase() || undefined,
+      };
+
+      onCreate(campaign);
       setIsUploading(false);
-      return;
+      handleClose();
+      toast.success('Campagne créée!');
+    } catch (error) {
+      console.error('Error creating campaign:', error);
+      toast.error('Erreur lors de la création');
+      setIsUploading(false);
     }
-
-    const campaign: Campaign = {
-      id: `campaign-${Date.now()}`,
-      title: title.trim(),
-      description: description.trim(),
-      type,
-      frameImage: uploadedUrl,
-      textElements: [],
-      hashtags: hashtags.split(' ').filter(h => h.startsWith('#')),
-      views: 0,
-      downloads: 0,
-      createdAt: new Date(),
-    };
-
-    onCreate(campaign);
-    setIsUploading(false);
-    handleClose();
-    toast.success('Campaign created!');
   };
 
   const handleClose = () => {
@@ -147,39 +239,114 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
     setDescription('');
     setHashtags('');
     setFrameImage('');
+    setFrameImagePortrait('');
+    setFrameImageLandscape('');
     setImageFile(null);
+    setPortraitFile(null);
+    setLandscapeFile(null);
+    setSlug('');
+    setSlugAvailable(null);
     onClose();
   };
 
+  const renderImageUpload = (
+    label: string,
+    preview: string,
+    onClear: () => void,
+    target: 'main' | 'portrait' | 'landscape',
+    hint?: string
+  ) => (
+    <div>
+      <label className="text-sm font-medium mb-2 block">
+        {label}
+        {hint && <span className="text-xs text-muted-foreground ml-2">({hint})</span>}
+      </label>
+      <label className="cursor-pointer block">
+        {preview ? (
+          <div className="relative group">
+            <img 
+              src={preview} 
+              alt="Preview" 
+              className="w-full h-32 object-contain bg-muted/50 rounded-xl"
+            />
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                onClear();
+              }}
+              className="absolute top-2 right-2 p-1.5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <div className="border-2 border-dashed rounded-xl p-6 text-center hover:border-primary hover:bg-primary/5 transition-all">
+            <Upload className="w-6 h-6 mx-auto text-muted-foreground mb-2" />
+            <p className="text-xs text-muted-foreground">Cliquez pour uploader</p>
+            <p className="text-xs text-muted-foreground mt-1">Max 2 Mo</p>
+          </div>
+        )}
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => handleFileUpload(e, target)}
+          className="hidden"
+        />
+      </label>
+    </div>
+  );
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-display text-xl">
-            {step === 'type' ? 'Choose Campaign Type' : 'Campaign Details'}
+            {step === 'type' ? 'Choisir le type de campagne' : 'Détails de la campagne'}
           </DialogTitle>
         </DialogHeader>
 
         {step === 'type' ? (
-          <div className="grid grid-cols-2 gap-4 mt-4">
+          <div className="grid grid-cols-3 gap-3 mt-4">
             <button
               onClick={() => {
                 setType('photo');
                 setStep('details');
               }}
               className={cn(
-                "p-6 rounded-xl border-2 border-dashed transition-all",
+                "p-4 rounded-xl border-2 border-dashed transition-all",
                 "hover:border-primary hover:bg-primary/5",
-                "flex flex-col items-center gap-3 text-center"
+                "flex flex-col items-center gap-2 text-center"
               )}
             >
-              <div className="p-4 rounded-full bg-primary/10">
-                <Image className="w-8 h-8 text-primary" />
+              <div className="p-3 rounded-full bg-primary/10">
+                <Image className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <p className="font-medium">Photo Frame</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Overlay on profile photos
+                <p className="font-medium text-sm">Cadre Photo</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Photos de profil
+                </p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                setType('video_filter');
+                setStep('details');
+              }}
+              className={cn(
+                "p-4 rounded-xl border-2 border-dashed transition-all",
+                "hover:border-chart-1 hover:bg-chart-1/5",
+                "flex flex-col items-center gap-2 text-center"
+              )}
+            >
+              <div className="p-3 rounded-full bg-chart-1/10">
+                <Video className="w-6 h-6 text-chart-1" />
+              </div>
+              <div>
+                <p className="font-medium text-sm">Filtre Vidéo</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Reels & Stories
                 </p>
               </div>
             </button>
@@ -190,66 +357,91 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
                 setStep('details');
               }}
               className={cn(
-                "p-6 rounded-xl border-2 border-dashed transition-all",
+                "p-4 rounded-xl border-2 border-dashed transition-all",
                 "hover:border-accent hover:bg-accent/5",
-                "flex flex-col items-center gap-3 text-center"
+                "flex flex-col items-center gap-2 text-center"
               )}
             >
-              <div className="p-4 rounded-full bg-accent/10">
-                <FileText className="w-8 h-8 text-accent" />
+              <div className="p-3 rounded-full bg-accent/10">
+                <FileText className="w-6 h-6 text-accent" />
               </div>
               <div>
-                <p className="font-medium">Document</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Certificates & diplomas
+                <p className="font-medium text-sm">Document</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Certificats
                 </p>
               </div>
             </button>
           </div>
         ) : (
           <div className="space-y-4 mt-4">
-            {/* Image Upload */}
+            {/* Image Upload Section */}
+            {type === 'video_filter' ? (
+              <div className="grid grid-cols-2 gap-3">
+                {renderImageUpload(
+                  'Cadre Portrait',
+                  frameImagePortrait,
+                  () => { setFrameImagePortrait(''); setPortraitFile(null); },
+                  'portrait',
+                  '9:16'
+                )}
+                {renderImageUpload(
+                  'Cadre Paysage',
+                  frameImageLandscape,
+                  () => { setFrameImageLandscape(''); setLandscapeFile(null); },
+                  'landscape',
+                  '16:9'
+                )}
+              </div>
+            ) : (
+              renderImageUpload(
+                type === 'photo' ? 'Image du cadre (PNG transparent)' : 'Image de fond',
+                frameImage,
+                () => { setFrameImage(''); setImageFile(null); },
+                'main'
+              )
+            )}
+
+            {/* Slug / Personalized Link */}
             <div>
               <label className="text-sm font-medium mb-2 block">
-                {type === 'photo' ? 'Frame Image (PNG with transparency)' : 'Background Image'}
+                Lien personnalisé
               </label>
-              <label className="cursor-pointer block">
-                {frameImage ? (
-                  <div className="relative group">
-                    <img 
-                      src={frameImage} 
-                      alt="Preview" 
-                      className="w-full h-40 object-contain bg-muted/50 rounded-xl"
-                    />
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setFrameImage('');
-                      }}
-                      className="absolute top-2 right-2 p-1.5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="border-2 border-dashed rounded-xl p-8 text-center hover:border-primary hover:bg-primary/5 transition-all">
-                    <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
-                    <p className="text-sm text-muted-foreground">Click to upload</p>
-                  </div>
-                )}
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-              </label>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">jyserai.app/c/</span>
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={slug}
+                    onChange={(e) => setSlug(e.target.value.replace(/[^a-zA-Z0-9-_]/g, '').toLowerCase())}
+                    placeholder="mon-projet"
+                    className="w-full px-3 py-2 rounded-lg bg-background border border-input focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-sm"
+                  />
+                  {slug && (
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                      {isCheckingSlug ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                      ) : slugAvailable === true ? (
+                        <Check className="w-4 h-4 text-green-500" />
+                      ) : slugAvailable === false ? (
+                        <AlertCircle className="w-4 h-4 text-destructive" />
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {slug && slugAvailable === false && (
+                <p className="text-xs text-destructive mt-1">Ce lien est déjà pris</p>
+              )}
+              {slug && slugAvailable === true && (
+                <p className="text-xs text-green-500 mt-1">Ce lien est disponible</p>
+              )}
             </div>
 
             {/* Title */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-medium">Title</label>
+                <label className="text-sm font-medium">Titre</label>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -258,14 +450,14 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
                   className="text-xs"
                 >
                   <Sparkles className="w-3 h-3 mr-1" />
-                  {isGenerating ? 'Generating...' : 'AI Generate'}
+                  {isGenerating ? 'Génération...' : 'IA'}
                 </Button>
               </div>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="My Awesome Campaign"
+                placeholder="Ma super campagne"
                 className="w-full px-4 py-2.5 rounded-lg bg-background border border-input focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
               />
             </div>
@@ -276,7 +468,7 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe your campaign..."
+                placeholder="Décrivez votre campagne..."
                 rows={2}
                 className="w-full px-4 py-2.5 rounded-lg bg-background border border-input focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all resize-none"
               />
@@ -294,14 +486,14 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
                   className="text-xs"
                 >
                   <Wand2 className="w-3 h-3 mr-1" />
-                  {isGeneratingHashtags ? 'Generating...' : 'Generate'}
+                  {isGeneratingHashtags ? 'Génération...' : 'Générer'}
                 </Button>
               </div>
               <input
                 type="text"
                 value={hashtags}
                 onChange={(e) => setHashtags(e.target.value)}
-                placeholder="#Viral #Campaign #FrameFlow"
+                placeholder="#Viral #Campagne #Jyserai"
                 className="w-full px-4 py-2.5 rounded-lg bg-background border border-input focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
               />
             </div>
@@ -309,16 +501,16 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
             {/* Actions */}
             <div className="flex gap-3 pt-2">
               <Button variant="outline" onClick={() => setStep('type')} className="flex-1" disabled={isUploading}>
-                Back
+                Retour
               </Button>
               <Button variant="gradient" onClick={handleCreate} className="flex-1" disabled={isUploading}>
                 {isUploading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Uploading...
+                    Upload...
                   </>
                 ) : (
-                  'Create Campaign'
+                  'Créer la campagne'
                 )}
               </Button>
             </div>

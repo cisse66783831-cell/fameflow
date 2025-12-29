@@ -21,9 +21,12 @@ export type Database = {
           description: string | null
           downloads: number
           frame_image: string
+          frame_image_landscape: string | null
+          frame_image_portrait: string | null
           hashtags: string[]
           id: string
           is_demo: boolean
+          slug: string | null
           text_elements: Json
           title: string
           type: string
@@ -37,9 +40,12 @@ export type Database = {
           description?: string | null
           downloads?: number
           frame_image: string
+          frame_image_landscape?: string | null
+          frame_image_portrait?: string | null
           hashtags?: string[]
           id?: string
           is_demo?: boolean
+          slug?: string | null
           text_elements?: Json
           title: string
           type: string
@@ -53,9 +59,12 @@ export type Database = {
           description?: string | null
           downloads?: number
           frame_image?: string
+          frame_image_landscape?: string | null
+          frame_image_portrait?: string | null
           hashtags?: string[]
           id?: string
           is_demo?: boolean
+          slug?: string | null
           text_elements?: Json
           title?: string
           type?: string
@@ -374,6 +383,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_slug_availability: {
+        Args: { check_slug: string; exclude_id?: string }
+        Returns: boolean
+      }
       generate_ticket_qr_code: { Args: never; Returns: string }
       has_role: {
         Args: {
