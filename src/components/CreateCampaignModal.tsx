@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Campaign } from '@/types/campaign';
 import { Button } from '@/components/ui/button';
 import { 
@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Image, FileText, Upload, Sparkles, X, Loader2, Wand2, Video, AlertCircle, Check } from 'lucide-react';
+import { Image, FileText, Upload, Sparkles, X, Loader2, Wand2, Video, AlertCircle, Check, Camera, Play, Square } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useStorage } from '@/hooks/useStorage';
@@ -39,6 +39,10 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
   const [slug, setSlug] = useState('');
   const [isCheckingSlug, setIsCheckingSlug] = useState(false);
   const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const { uploadImage } = useStorage();
 
   // Debounced slug check
@@ -233,6 +237,7 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
   };
 
   const handleClose = () => {
+    stopCamera();
     setStep('type');
     setType('photo');
     setTitle('');
@@ -246,7 +251,35 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
     setLandscapeFile(null);
     setSlug('');
     setSlugAvailable(null);
+    setShowPreview(false);
+    setIsCameraActive(false);
     onClose();
+  };
+
+  // Camera functions for filter preview
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'user', width: 720, height: 1280 },
+        audio: false 
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      setIsCameraActive(true);
+      setShowPreview(true);
+    } catch (error) {
+      toast.error('Impossible d\'accéder à la caméra');
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setIsCameraActive(false);
   };
 
   const renderImageUpload = (
@@ -377,20 +410,68 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
           <div className="space-y-4 mt-4">
             {/* Image Upload Section */}
             {type === 'video_filter' ? (
-              <div className="grid grid-cols-2 gap-3">
-                {renderImageUpload(
-                  'Cadre Portrait',
-                  frameImagePortrait,
-                  () => { setFrameImagePortrait(''); setPortraitFile(null); },
-                  'portrait',
-                  '9:16'
-                )}
-                {renderImageUpload(
-                  'Cadre Paysage',
-                  frameImageLandscape,
-                  () => { setFrameImageLandscape(''); setLandscapeFile(null); },
-                  'landscape',
-                  '16:9'
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  {renderImageUpload(
+                    'Cadre Portrait',
+                    frameImagePortrait,
+                    () => { setFrameImagePortrait(''); setPortraitFile(null); },
+                    'portrait',
+                    '9:16'
+                  )}
+                  {renderImageUpload(
+                    'Cadre Paysage',
+                    frameImageLandscape,
+                    () => { setFrameImageLandscape(''); setLandscapeFile(null); },
+                    'landscape',
+                    '16:9'
+                  )}
+                </div>
+
+                {/* Real-time Filter Preview */}
+                {(frameImagePortrait || frameImageLandscape) && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium">Prévisualisation en direct</label>
+                      {!isCameraActive ? (
+                        <Button variant="outline" size="sm" onClick={startCamera}>
+                          <Camera className="w-4 h-4 mr-1" />
+                          Activer caméra
+                        </Button>
+                      ) : (
+                        <Button variant="outline" size="sm" onClick={stopCamera}>
+                          <Square className="w-4 h-4 mr-1" />
+                          Désactiver
+                        </Button>
+                      )}
+                    </div>
+                    
+                    {showPreview && (
+                      <div className="aspect-[9/16] max-h-[300px] rounded-xl bg-background border border-border overflow-hidden relative mx-auto">
+                        <video 
+                          ref={videoRef} 
+                          autoPlay 
+                          muted 
+                          playsInline
+                          className="w-full h-full object-cover"
+                        />
+                        {/* Filter Overlay */}
+                        <img 
+                          src={frameImagePortrait || frameImageLandscape} 
+                          alt="Filter Preview" 
+                          className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+                        />
+                        {!isCameraActive && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
+                            <Button variant="outline" onClick={startCamera}>
+                              <Play className="w-4 h-4 mr-2" />
+                              Démarrer l'aperçu
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             ) : (
@@ -408,7 +489,7 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
                 Lien personnalisé
               </label>
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">jyserai.app/c/</span>
+                <span className="text-sm text-muted-foreground whitespace-nowrap">jyserai.site/</span>
                 <div className="relative flex-1">
                   <input
                     type="text"
