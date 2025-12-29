@@ -123,6 +123,15 @@ export default function VideoFiltersPage() {
     }
   };
 
+  const getResolutionDimensions = (quality: string): { width: number; height: number } => {
+    switch (quality) {
+      case '480p': return { width: 854, height: 480 };
+      case '720p': return { width: 1280, height: 720 };
+      case '1080p': return { width: 1920, height: 1080 };
+      default: return { width: 1280, height: 720 };
+    }
+  };
+
   const applyFilterAndExport = async () => {
     if (!selectedFilter || (!recordedVideo && !uploadedVideo)) {
       toast.error('Sélectionnez un filtre et une vidéo');
@@ -130,30 +139,108 @@ export default function VideoFiltersPage() {
     }
 
     setIsProcessing(true);
-    toast.info('Application du filtre en cours...');
+    toast.info(`Traitement en cours (${exportQuality})...`);
 
-    // Simulate processing (real implementation would use canvas/WebGL)
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      const videoBlob = recordedVideo || uploadedVideo;
+      if (!videoBlob) return;
 
-    // Increment downloads
-    await (supabase as any)
-      .from('video_filters')
-      .update({ downloads: selectedFilter.downloads + 1 })
-      .eq('id', selectedFilter.id);
+      // Create video element for processing
+      const videoElement = document.createElement('video');
+      videoElement.src = URL.createObjectURL(videoBlob);
+      videoElement.muted = true;
+      
+      await new Promise<void>((resolve) => {
+        videoElement.onloadedmetadata = () => resolve();
+      });
 
-    // Create download link
-    const videoBlob = recordedVideo || uploadedVideo;
-    if (videoBlob) {
-      const url = URL.createObjectURL(videoBlob);
+      const { width, height } = getResolutionDimensions(exportQuality);
+      
+      // Create canvas for compositing
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d')!;
+
+      // Load filter image
+      const filterImg = new Image();
+      filterImg.crossOrigin = 'anonymous';
+      await new Promise<void>((resolve, reject) => {
+        filterImg.onload = () => resolve();
+        filterImg.onerror = reject;
+        filterImg.src = selectedFilter.filter_image;
+      });
+
+      // Setup MediaRecorder for canvas
+      const canvasStream = canvas.captureStream(30);
+      const mediaRecorder = new MediaRecorder(canvasStream, { 
+        mimeType: 'video/webm;codecs=vp9',
+        videoBitsPerSecond: exportQuality === '1080p' ? 8000000 : exportQuality === '720p' ? 5000000 : 2500000
+      });
+      
+      const chunks: Blob[] = [];
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+
+      const exportPromise = new Promise<Blob>((resolve) => {
+        mediaRecorder.onstop = () => {
+          const exportedBlob = new Blob(chunks, { type: 'video/webm' });
+          resolve(exportedBlob);
+        };
+      });
+
+      // Start recording
+      mediaRecorder.start();
+      videoElement.play();
+
+      // Render frames
+      const renderFrame = () => {
+        if (videoElement.ended || videoElement.paused) {
+          mediaRecorder.stop();
+          return;
+        }
+
+        // Draw video frame
+        ctx.drawImage(videoElement, 0, 0, width, height);
+        
+        // Draw filter overlay
+        ctx.drawImage(filterImg, 0, 0, width, height);
+
+        requestAnimationFrame(renderFrame);
+      };
+
+      renderFrame();
+
+      // Wait for video to end
+      await new Promise<void>((resolve) => {
+        videoElement.onended = () => resolve();
+      });
+
+      const exportedBlob = await exportPromise;
+
+      // Increment downloads
+      await (supabase as any)
+        .from('video_filters')
+        .update({ downloads: selectedFilter.downloads + 1 })
+        .eq('id', selectedFilter.id);
+
+      // Download the file
+      const url = URL.createObjectURL(exportedBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `jyserai-filter-${Date.now()}.webm`;
+      a.download = `jyserai-${selectedFilter.title.replace(/\s+/g, '-')}-${exportQuality}-${Date.now()}.webm`;
       a.click();
       URL.revokeObjectURL(url);
+      URL.revokeObjectURL(videoElement.src);
+
+      toast.success(`Vidéo exportée en ${exportQuality} !`);
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Erreur lors de l\'export. Réessayez.');
     }
 
     setIsProcessing(false);
-    toast.success('Vidéo exportée avec succès !');
   };
 
   const createFilter = async () => {
