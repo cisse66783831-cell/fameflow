@@ -121,16 +121,10 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Check if file needs compression (> 6MB)
-    if (needsCompression(file, 6)) {
+    // Check if file needs compression (> 2MB) - offer compression dialog
+    if (needsCompression(file, 2)) {
       setPendingFile({ file, target });
       setShowCompressionDialog(true);
-      return;
-    }
-
-    // Check if file is within 2MB limit
-    if (file.size > MAX_FILE_SIZE) {
-      toast.error(`Le fichier doit faire moins de 2 Mo. Taille actuelle: ${formatFileSize(file.size)}`);
       return;
     }
 
