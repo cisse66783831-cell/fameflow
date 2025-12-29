@@ -19,6 +19,7 @@ import SuperAdminPage from "./pages/SuperAdmin";
 import VideoFiltersPage from "./pages/VideoFilters";
 import CampaignBySlugPage from "./pages/CampaignBySlug";
 import NotFound from "./pages/NotFound";
+import ServerError from "./pages/ServerError";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -53,6 +54,7 @@ const App = () => (
                 <Route path="/c/:id" element={<CampaignPage />} />
                 <Route path="/:slug" element={<CampaignBySlugPage />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="/500" element={<ServerError />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
