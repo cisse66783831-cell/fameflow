@@ -1,12 +1,18 @@
-import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useSearchParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Home, ArrowLeft, RefreshCw, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+
+const REDIRECT_DELAY = 10; // seconds
 
 const NotFound = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [showDetails, setShowDetails] = useState(false);
+  const [countdown, setCountdown] = useState(REDIRECT_DELAY);
+  const [isPaused, setIsPaused] = useState(false);
   
   // Extract error info from URL params (for hosting errors)
   const errorCode = searchParams.get('code') || '404';
@@ -16,9 +22,27 @@ const NotFound = () => {
     console.error("404 Error: User attempted to access non-existent route:", location.pathname);
   }, [location.pathname]);
 
+  // Auto-redirect countdown
+  useEffect(() => {
+    if (isPaused) return;
+    
+    if (countdown <= 0) {
+      navigate('/');
+      return;
+    }
+    
+    const timer = setTimeout(() => {
+      setCountdown(prev => prev - 1);
+    }, 1000);
+    
+    return () => clearTimeout(timer);
+  }, [countdown, isPaused, navigate]);
+
   const handleReload = () => {
     window.location.reload();
   };
+
+  const progressValue = ((REDIRECT_DELAY - countdown) / REDIRECT_DELAY) * 100;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background to-primary/5">
@@ -65,6 +89,25 @@ const NotFound = () => {
               Événements
             </Link>
           </Button>
+        </div>
+
+        {/* Auto-redirect countdown */}
+        <div 
+          className="mb-8 p-4 bg-muted/30 rounded-xl border border-border/50"
+          onMouseEnter={() => setIsPaused(true)}
+          onMouseLeave={() => setIsPaused(false)}
+        >
+          <p className="text-sm text-muted-foreground mb-3">
+            {isPaused ? (
+              "Redirection en pause"
+            ) : (
+              <>Redirection automatique dans <span className="font-semibold text-foreground">{countdown}s</span></>
+            )}
+          </p>
+          <Progress value={progressValue} className="h-1.5" />
+          <p className="text-xs text-muted-foreground/70 mt-2">
+            Survolez pour annuler
+          </p>
         </div>
 
         {/* Error ID display (if available from hosting) */}
