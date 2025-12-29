@@ -15,8 +15,10 @@ export interface Campaign {
   id: string;
   title: string;
   description: string;
-  type: 'photo' | 'document';
-  frameImage: string; // Base64 encoded
+  type: 'photo' | 'document' | 'video_filter';
+  frameImage: string; // Base64 encoded or URL
+  frameImagePortrait?: string; // For video filters - portrait frame
+  frameImageLandscape?: string; // For video filters - landscape frame
   backgroundImage?: string; // For document type
   textElements: TextElement[];
   hashtags: string[];
@@ -24,6 +26,7 @@ export interface Campaign {
   downloads: number;
   createdAt: Date;
   isDemo?: boolean;
+  slug?: string; // Personalized URL slug
 }
 
 export interface ParticipantData {
