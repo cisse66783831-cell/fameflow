@@ -1,5 +1,5 @@
 import { Campaign } from '@/types/campaign';
-import { Eye, Download, Image, FileText, Trash2, Play, Share2, Copy, Check, QrCode } from 'lucide-react';
+import { Eye, Download, Image, FileText, Trash2, Play, Share2, Copy, Check, QrCode, Pencil, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -10,17 +10,22 @@ interface CampaignCardProps {
   campaign: Campaign;
   onSelect: (campaign: Campaign) => void;
   onDelete: (id: string) => void;
+  onEdit?: (campaign: Campaign) => void;
   index: number;
 }
 
-export const CampaignCard = ({ campaign, onSelect, onDelete, index }: CampaignCardProps) => {
+export const CampaignCard = ({ campaign, onSelect, onDelete, onEdit, index }: CampaignCardProps) => {
   const [copied, setCopied] = useState(false);
   
-  const previewImage = campaign.type === 'photo' 
-    ? campaign.frameImage 
-    : campaign.backgroundImage;
+  const previewImage = campaign.type === 'video_filter' 
+    ? campaign.frameImagePortrait || campaign.frameImageLandscape || campaign.frameImage
+    : campaign.type === 'photo' 
+      ? campaign.frameImage 
+      : campaign.backgroundImage;
 
-  const shareUrl = `${window.location.origin}/c/${campaign.id}`;
+  const shareUrl = campaign.slug 
+    ? `https://jyserai.site/${campaign.slug}`
+    : `${window.location.origin}/c/${campaign.id}`;
 
   const handleCopyLink = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -95,9 +100,11 @@ export const CampaignCard = ({ campaign, onSelect, onDelete, index }: CampaignCa
           "absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-medium",
           campaign.type === 'photo' 
             ? "bg-primary/90 text-primary-foreground" 
-            : "bg-accent/90 text-accent-foreground"
+            : campaign.type === 'video_filter'
+              ? "bg-chart-1/90 text-white"
+              : "bg-accent/90 text-accent-foreground"
         )}>
-          {campaign.type === 'photo' ? 'Photo Frame' : 'Document'}
+          {campaign.type === 'photo' ? 'Photo Frame' : campaign.type === 'video_filter' ? 'Filtre Vidéo' : 'Document'}
         </div>
 
         {campaign.isDemo && (
@@ -131,24 +138,36 @@ export const CampaignCard = ({ campaign, onSelect, onDelete, index }: CampaignCa
             <button
               onClick={handleCopyLink}
               className="p-2 text-muted-foreground hover:text-primary transition-colors rounded-lg hover:bg-primary/10"
-              title="Copy link"
+              title="Copier le lien"
             >
               {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
             </button>
             <button
               onClick={handleShare}
               className="p-2 text-muted-foreground hover:text-primary transition-colors rounded-lg hover:bg-primary/10"
-              title="Share"
+              title="Partager"
             >
               <Share2 className="w-4 h-4" />
             </button>
+            {onEdit && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(campaign);
+                }}
+                className="p-2 text-muted-foreground hover:text-primary transition-colors rounded-lg hover:bg-primary/10"
+                title="Modifier"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+            )}
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete(campaign.id);
               }}
               className="p-2 text-muted-foreground hover:text-destructive transition-colors rounded-lg hover:bg-destructive/10"
-              title="Delete"
+              title="Supprimer"
             >
               <Trash2 className="w-4 h-4" />
             </button>

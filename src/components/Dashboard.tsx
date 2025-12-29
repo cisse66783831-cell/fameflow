@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { StatsCard } from './StatsCard';
 import { CampaignCard } from './CampaignCard';
 import { CreateCampaignModal } from './CreateCampaignModal';
+import { EditCampaignModal } from './EditCampaignModal';
 import { PhotoEditor } from './PhotoEditor';
 import { AnalyticsChart } from './AnalyticsChart';
 import { Button } from '@/components/ui/button';
@@ -21,6 +22,7 @@ export const Dashboard = () => {
     campaigns, 
     isLoading, 
     addCampaign, 
+    updateCampaign,
     deleteCampaign, 
     loadDemoTemplates, 
     incrementStats,
@@ -31,7 +33,9 @@ export const Dashboard = () => {
   const navigate = useNavigate();
   
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
+  const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
 
   const stats = getTotalStats();
 
@@ -56,6 +60,11 @@ export const Dashboard = () => {
   const handleSelectCampaign = (campaign: Campaign) => {
     setSelectedCampaign(campaign);
     incrementStats(campaign.id, 'views');
+  };
+
+  const handleEditCampaign = (campaign: Campaign) => {
+    setEditingCampaign(campaign);
+    setShowEditModal(true);
   };
 
   const handleDownload = () => {
@@ -209,6 +218,7 @@ export const Dashboard = () => {
                       campaign={campaign}
                       onSelect={handleSelectCampaign}
                       onDelete={handleDeleteCampaign}
+                      onEdit={handleEditCampaign}
                       index={index}
                     />
                   ))}
@@ -227,6 +237,16 @@ export const Dashboard = () => {
         open={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onCreate={addCampaign}
+      />
+
+      <EditCampaignModal
+        open={showEditModal}
+        campaign={editingCampaign}
+        onClose={() => {
+          setShowEditModal(false);
+          setEditingCampaign(null);
+        }}
+        onUpdate={updateCampaign}
       />
     </div>
   );

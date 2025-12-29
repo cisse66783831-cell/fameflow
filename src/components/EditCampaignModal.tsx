@@ -7,6 +7,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Upload, X, Loader2, Wand2, Sparkles, AlertCircle, Check, Camera, Square } from 'lucide-react';
+import { toast } from 'sonner';
+import { useStorage } from '@/hooks/useStorage';
+import { supabase } from '@/integrations/supabase/client';
+import { compressImage, needsCompression, formatFileSize } from '@/utils/imageCompression';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -17,24 +22,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Image, FileText, Upload, Sparkles, X, Loader2, Wand2, Video, AlertCircle, Check, Camera, Play, Square } from 'lucide-react';
-import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
-import { useStorage } from '@/hooks/useStorage';
-import { supabase } from '@/integrations/supabase/client';
-import { compressImage, needsCompression, formatFileSize } from '@/utils/imageCompression';
 
-interface CreateCampaignModalProps {
+interface EditCampaignModalProps {
   open: boolean;
+  campaign: Campaign | null;
   onClose: () => void;
-  onCreate: (campaign: Campaign) => void;
+  onUpdate: (id: string, updates: Partial<Campaign>) => void;
 }
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 
-export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignModalProps) => {
-  const [step, setStep] = useState<'type' | 'details'>('type');
-  const [type, setType] = useState<'photo' | 'document' | 'video_filter'>('photo');
+export const EditCampaignModal = ({ open, campaign, onClose, onUpdate }: EditCampaignModalProps) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [hashtags, setHashtags] = useState('');
@@ -44,7 +42,6 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [portraitFile, setPortraitFile] = useState<File | null>(null);
   const [landscapeFile, setLandscapeFile] = useState<File | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingHashtags, setIsGeneratingHashtags] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [slug, setSlug] = useState('');
@@ -59,9 +56,22 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
   const streamRef = useRef<MediaStream | null>(null);
   const { uploadImage } = useStorage();
 
+  useEffect(() => {
+    if (campaign) {
+      setTitle(campaign.title);
+      setDescription(campaign.description || '');
+      setHashtags(campaign.hashtags.join(' '));
+      setFrameImage(campaign.frameImage);
+      setFrameImagePortrait(campaign.frameImagePortrait || '');
+      setFrameImageLandscape(campaign.frameImageLandscape || '');
+      setSlug(campaign.slug || '');
+      setSlugAvailable(null);
+    }
+  }, [campaign]);
+
   // Debounced slug check
   useEffect(() => {
-    if (!slug.trim()) {
+    if (!slug.trim() || (campaign?.slug === slug)) {
       setSlugAvailable(null);
       return;
     }
@@ -70,7 +80,10 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
       setIsCheckingSlug(true);
       try {
         const { data, error } = await supabase
-          .rpc('check_slug_availability', { check_slug: slug.toLowerCase().trim() });
+          .rpc('check_slug_availability', { 
+            check_slug: slug.toLowerCase().trim(),
+            exclude_id: campaign?.id
+          });
         
         if (error) throw error;
         setSlugAvailable(data);
@@ -82,7 +95,27 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [slug]);
+  }, [slug, campaign?.id, campaign?.slug]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'main' | 'portrait' | 'landscape') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Check if file needs compression (> 6MB)
+    if (needsCompression(file, 6)) {
+      setPendingFile({ file, target });
+      setShowCompressionDialog(true);
+      return;
+    }
+
+    // Check if file is within 2MB limit
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error(`Le fichier doit faire moins de 2 Mo. Taille actuelle: ${formatFileSize(file.size)}`);
+      return;
+    }
+
+    processFile(file, target);
+  };
 
   const processFile = (file: File, target: 'main' | 'portrait' | 'landscape') => {
     const previewUrl = URL.createObjectURL(file);
@@ -117,54 +150,6 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
     setPendingFile(null);
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'main' | 'portrait' | 'landscape') => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Check if file needs compression (> 6MB)
-    if (needsCompression(file, 6)) {
-      setPendingFile({ file, target });
-      setShowCompressionDialog(true);
-      return;
-    }
-
-    // Check if file is within 2MB limit
-    if (file.size > MAX_FILE_SIZE) {
-      toast.error(`Le fichier doit faire moins de 2 Mo. Taille actuelle: ${formatFileSize(file.size)}`);
-      return;
-    }
-
-    processFile(file, target);
-  };
-
-  const generateWithAI = async () => {
-    setIsGenerating(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('ai-assistant', {
-        body: { type: 'campaign-idea' }
-      });
-
-      if (error) throw error;
-      
-      const result = data?.result;
-      if (result) {
-        try {
-          const parsed = JSON.parse(result);
-          setTitle(parsed.title || '');
-          setDescription(parsed.description || '');
-          setHashtags(parsed.hashtags || '');
-        } catch {
-          setTitle(result.slice(0, 50));
-        }
-        toast.success('Généré avec l\'IA!');
-      }
-    } catch (error) {
-      console.error('AI generation error:', error);
-      toast.error('Échec de la génération. Réessayez.');
-    }
-    setIsGenerating(false);
-  };
-
   const generateHashtags = async () => {
     if (!title.trim()) {
       toast.error('Veuillez d\'abord entrer un titre');
@@ -194,27 +179,16 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
     setIsGeneratingHashtags(false);
   };
 
-  const handleCreate = async () => {
+  const handleUpdate = async () => {
+    if (!campaign) return;
+    
     if (!title.trim()) {
       toast.error('Veuillez entrer un titre');
       return;
     }
 
-    // Validate based on type
-    if (type === 'video_filter') {
-      if (!portraitFile && !landscapeFile) {
-        toast.error('Veuillez uploader au moins un cadre (portrait ou paysage)');
-        return;
-      }
-    } else {
-      if (!imageFile) {
-        toast.error('Veuillez uploader une image');
-        return;
-      }
-    }
-
-    // Validate slug if provided
-    if (slug.trim() && slugAvailable === false) {
+    // Validate slug if changed
+    if (slug.trim() && slug !== campaign.slug && slugAvailable === false) {
       toast.error('Ce lien personnalisé est déjà pris');
       return;
     }
@@ -222,79 +196,50 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
     setIsUploading(true);
     
     try {
-      let uploadedUrl = '';
-      let uploadedPortraitUrl = '';
-      let uploadedLandscapeUrl = '';
-
-      if (type === 'video_filter') {
-        // Upload portrait and landscape frames
-        if (portraitFile) {
-          uploadedPortraitUrl = await uploadImage(portraitFile, 'filters/portrait') || '';
-        }
-        if (landscapeFile) {
-          uploadedLandscapeUrl = await uploadImage(landscapeFile, 'filters/landscape') || '';
-        }
-        // Use portrait as main if available, otherwise landscape
-        uploadedUrl = uploadedPortraitUrl || uploadedLandscapeUrl;
-      } else {
-        // Upload main image
-        uploadedUrl = await uploadImage(imageFile!, type === 'photo' ? 'frames' : 'documents') || '';
-      }
-
-      if (!uploadedUrl) {
-        toast.error('Échec de l\'upload de l\'image');
-        setIsUploading(false);
-        return;
-      }
-
-      const campaign: Campaign = {
-        id: `campaign-${Date.now()}`,
+      const updates: Partial<Campaign> = {
         title: title.trim(),
         description: description.trim(),
-        type,
-        frameImage: uploadedUrl,
-        frameImagePortrait: uploadedPortraitUrl || undefined,
-        frameImageLandscape: uploadedLandscapeUrl || undefined,
-        textElements: [],
         hashtags: hashtags.split(' ').filter(h => h.startsWith('#')),
-        views: 0,
-        downloads: 0,
-        createdAt: new Date(),
         slug: slug.trim().toLowerCase() || undefined,
       };
 
-      onCreate(campaign);
+      // Upload new images if provided
+      if (imageFile) {
+        const uploadedUrl = await uploadImage(imageFile, campaign.type === 'photo' ? 'frames' : 'documents');
+        if (uploadedUrl) updates.frameImage = uploadedUrl;
+      }
+
+      if (portraitFile) {
+        const uploadedUrl = await uploadImage(portraitFile, 'filters/portrait');
+        if (uploadedUrl) updates.frameImagePortrait = uploadedUrl;
+      }
+
+      if (landscapeFile) {
+        const uploadedUrl = await uploadImage(landscapeFile, 'filters/landscape');
+        if (uploadedUrl) updates.frameImageLandscape = uploadedUrl;
+      }
+
+      onUpdate(campaign.id, updates);
       setIsUploading(false);
       handleClose();
-      toast.success('Campagne créée!');
+      toast.success('Campagne mise à jour!');
     } catch (error) {
-      console.error('Error creating campaign:', error);
-      toast.error('Erreur lors de la création');
+      console.error('Error updating campaign:', error);
+      toast.error('Erreur lors de la mise à jour');
       setIsUploading(false);
     }
   };
 
   const handleClose = () => {
     stopCamera();
-    setStep('type');
-    setType('photo');
-    setTitle('');
-    setDescription('');
-    setHashtags('');
-    setFrameImage('');
-    setFrameImagePortrait('');
-    setFrameImageLandscape('');
     setImageFile(null);
     setPortraitFile(null);
     setLandscapeFile(null);
-    setSlug('');
-    setSlugAvailable(null);
     setShowPreview(false);
     setIsCameraActive(false);
     onClose();
   };
 
-  // Camera functions for filter preview
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -367,88 +312,21 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
     </div>
   );
 
+  if (!campaign) return null;
+
   return (
     <>
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="font-display text-xl">
-            {step === 'type' ? 'Choisir le type de campagne' : 'Détails de la campagne'}
-          </DialogTitle>
-        </DialogHeader>
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl">
+              Modifier la campagne
+            </DialogTitle>
+          </DialogHeader>
 
-        {step === 'type' ? (
-          <div className="grid grid-cols-3 gap-3 mt-4">
-            <button
-              onClick={() => {
-                setType('photo');
-                setStep('details');
-              }}
-              className={cn(
-                "p-4 rounded-xl border-2 border-dashed transition-all",
-                "hover:border-primary hover:bg-primary/5",
-                "flex flex-col items-center gap-2 text-center"
-              )}
-            >
-              <div className="p-3 rounded-full bg-primary/10">
-                <Image className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <p className="font-medium text-sm">Cadre Photo</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Photos de profil
-                </p>
-              </div>
-            </button>
-
-            <button
-              onClick={() => {
-                setType('video_filter');
-                setStep('details');
-              }}
-              className={cn(
-                "p-4 rounded-xl border-2 border-dashed transition-all",
-                "hover:border-chart-1 hover:bg-chart-1/5",
-                "flex flex-col items-center gap-2 text-center"
-              )}
-            >
-              <div className="p-3 rounded-full bg-chart-1/10">
-                <Video className="w-6 h-6 text-chart-1" />
-              </div>
-              <div>
-                <p className="font-medium text-sm">Filtre Vidéo</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Reels & Stories
-                </p>
-              </div>
-            </button>
-
-            <button
-              onClick={() => {
-                setType('document');
-                setStep('details');
-              }}
-              className={cn(
-                "p-4 rounded-xl border-2 border-dashed transition-all",
-                "hover:border-accent hover:bg-accent/5",
-                "flex flex-col items-center gap-2 text-center"
-              )}
-            >
-              <div className="p-3 rounded-full bg-accent/10">
-                <FileText className="w-6 h-6 text-accent" />
-              </div>
-              <div>
-                <p className="font-medium text-sm">Document</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Certificats
-                </p>
-              </div>
-            </button>
-          </div>
-        ) : (
           <div className="space-y-4 mt-4">
             {/* Image Upload Section */}
-            {type === 'video_filter' ? (
+            {campaign.type === 'video_filter' ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   {renderImageUpload(
@@ -486,7 +364,7 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
                     </div>
                     
                     {showPreview && (
-                      <div className="aspect-[9/16] max-h-[300px] rounded-xl bg-background border border-border overflow-hidden relative mx-auto">
+                      <div className="aspect-[9/16] max-h-[200px] rounded-xl bg-background border border-border overflow-hidden relative mx-auto">
                         <video 
                           ref={videoRef} 
                           autoPlay 
@@ -494,20 +372,11 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
                           playsInline
                           className="w-full h-full object-cover"
                         />
-                        {/* Filter Overlay */}
                         <img 
                           src={frameImagePortrait || frameImageLandscape} 
                           alt="Filter Preview" 
                           className="absolute inset-0 w-full h-full object-contain pointer-events-none"
                         />
-                        {!isCameraActive && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
-                            <Button variant="outline" onClick={startCamera}>
-                              <Play className="w-4 h-4 mr-2" />
-                              Démarrer l'aperçu
-                            </Button>
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>
@@ -515,7 +384,7 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
               </div>
             ) : (
               renderImageUpload(
-                type === 'photo' ? 'Image du cadre (PNG transparent)' : 'Image de fond',
+                campaign.type === 'photo' ? 'Image du cadre (PNG transparent)' : 'Image de fond',
                 frameImage,
                 () => { setFrameImage(''); setImageFile(null); },
                 'main'
@@ -537,7 +406,7 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
                     placeholder="mon-projet"
                     className="w-full px-3 py-2 rounded-lg bg-background border border-input focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-sm"
                   />
-                  {slug && (
+                  {slug && slug !== campaign.slug && (
                     <div className="absolute right-2 top-1/2 -translate-y-1/2">
                       {isCheckingSlug ? (
                         <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
@@ -550,29 +419,17 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
                   )}
                 </div>
               </div>
-              {slug && slugAvailable === false && (
+              {slug && slug !== campaign.slug && slugAvailable === false && (
                 <p className="text-xs text-destructive mt-1">Ce lien est déjà pris</p>
               )}
-              {slug && slugAvailable === true && (
+              {slug && slug !== campaign.slug && slugAvailable === true && (
                 <p className="text-xs text-green-500 mt-1">Ce lien est disponible</p>
               )}
             </div>
 
             {/* Title */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-medium">Titre</label>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={generateWithAI}
-                  disabled={isGenerating}
-                  className="text-xs"
-                >
-                  <Sparkles className="w-3 h-3 mr-1" />
-                  {isGenerating ? 'Génération...' : 'IA'}
-                </Button>
-              </div>
+              <label className="text-sm font-medium mb-2 block">Titre</label>
               <input
                 type="text"
                 value={title}
@@ -620,59 +477,58 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
 
             {/* Actions */}
             <div className="flex gap-3 pt-2">
-              <Button variant="outline" onClick={() => setStep('type')} className="flex-1" disabled={isUploading}>
-                Retour
+              <Button variant="outline" onClick={handleClose} className="flex-1" disabled={isUploading}>
+                Annuler
               </Button>
-              <Button variant="gradient" onClick={handleCreate} className="flex-1" disabled={isUploading}>
+              <Button variant="gradient" onClick={handleUpdate} className="flex-1" disabled={isUploading}>
                 {isUploading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Upload...
+                    Mise à jour...
                   </>
                 ) : (
-                  'Créer la campagne'
+                  'Enregistrer'
                 )}
               </Button>
             </div>
           </div>
-        )}
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
 
-    {/* Compression Dialog */}
-    <AlertDialog open={showCompressionDialog} onOpenChange={setShowCompressionDialog}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Fichier trop volumineux</AlertDialogTitle>
-          <AlertDialogDescription>
-            Ce fichier fait {pendingFile ? formatFileSize(pendingFile.file.size) : ''}, ce qui dépasse la limite de 2 Mo.
-            <br /><br />
-            Souhaitez-vous que nous réduisions automatiquement la taille du fichier ? 
-            La qualité sera optimisée pour conserver un rendu net.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel 
-            onClick={() => {
-              setShowCompressionDialog(false);
-              setPendingFile(null);
-            }}
-          >
-            Annuler
-          </AlertDialogCancel>
-          <AlertDialogAction onClick={handleCompressAndUse} disabled={isCompressing}>
-            {isCompressing ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Compression...
-              </>
-            ) : (
-              'Réduire et utiliser'
-            )}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  </>
+      {/* Compression Dialog */}
+      <AlertDialog open={showCompressionDialog} onOpenChange={setShowCompressionDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Fichier trop volumineux</AlertDialogTitle>
+            <AlertDialogDescription>
+              Ce fichier fait {pendingFile ? formatFileSize(pendingFile.file.size) : ''}, ce qui dépasse la limite de 2 Mo.
+              <br /><br />
+              Souhaitez-vous que nous réduisions automatiquement la taille du fichier ? 
+              La qualité sera optimisée pour conserver un rendu net.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={() => {
+                setShowCompressionDialog(false);
+                setPendingFile(null);
+              }}
+            >
+              Annuler
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleCompressAndUse} disabled={isCompressing}>
+              {isCompressing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Compression...
+                </>
+              ) : (
+                'Réduire et utiliser'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
