@@ -1,10 +1,7 @@
-import { useState } from 'react';
 import { TextElement } from '@/types/campaign';
 import { Button } from '@/components/ui/button';
-import { Slider } from '@/components/ui/slider';
 import { 
-  Plus, Trash2, Type, GripVertical, ChevronDown, ChevronUp,
-  Bold, Italic, AlignCenter
+  Plus, Trash2, AlignCenter, Type
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -14,73 +11,107 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
 
 interface DocumentFieldEditorProps {
   textElements: TextElement[];
   onChange: (elements: TextElement[]) => void;
   canvasWidth: number;
   canvasHeight: number;
+  selectedFieldId?: string | null;
+  onSelectField?: (id: string | null) => void;
 }
 
-const FONT_FAMILIES = [
-  'Arial',
-  'Georgia',
-  'Times New Roman',
-  'Verdana',
-  'Helvetica',
-  'Courier New',
-  'Impact',
+// Polices avec variantes - affichage visuel
+const FONT_OPTIONS = [
+  // Élégantes / Serif
+  { value: 'Playfair Display', label: 'Playfair Display', weight: '400', category: 'Élégante' },
+  { value: 'Playfair Display', label: 'Playfair Display Bold', weight: '700', category: 'Élégante' },
+  { value: 'Playfair Display', label: 'Playfair Display Black', weight: '900', category: 'Élégante' },
+  { value: 'Merriweather', label: 'Merriweather', weight: '400', category: 'Élégante' },
+  { value: 'Merriweather', label: 'Merriweather Bold', weight: '700', category: 'Élégante' },
+  
+  // Modernes / Sans-serif
+  { value: 'Montserrat', label: 'Montserrat Light', weight: '300', category: 'Moderne' },
+  { value: 'Montserrat', label: 'Montserrat', weight: '400', category: 'Moderne' },
+  { value: 'Montserrat', label: 'Montserrat Bold', weight: '700', category: 'Moderne' },
+  { value: 'Montserrat', label: 'Montserrat Black', weight: '900', category: 'Moderne' },
+  { value: 'Poppins', label: 'Poppins Light', weight: '300', category: 'Moderne' },
+  { value: 'Poppins', label: 'Poppins', weight: '400', category: 'Moderne' },
+  { value: 'Poppins', label: 'Poppins Bold', weight: '700', category: 'Moderne' },
+  { value: 'Outfit', label: 'Outfit', weight: '400', category: 'Moderne' },
+  { value: 'Outfit', label: 'Outfit Bold', weight: '700', category: 'Moderne' },
+  
+  // Classiques
+  { value: 'Roboto', label: 'Roboto Light', weight: '300', category: 'Classique' },
+  { value: 'Roboto', label: 'Roboto', weight: '400', category: 'Classique' },
+  { value: 'Roboto', label: 'Roboto Bold', weight: '700', category: 'Classique' },
+  { value: 'Open Sans', label: 'Open Sans', weight: '400', category: 'Classique' },
+  { value: 'Open Sans', label: 'Open Sans Bold', weight: '700', category: 'Classique' },
+  { value: 'Lato', label: 'Lato', weight: '400', category: 'Classique' },
+  { value: 'Lato', label: 'Lato Bold', weight: '700', category: 'Classique' },
+  
+  // Impact
+  { value: 'Oswald', label: 'Oswald', weight: '400', category: 'Impact' },
+  { value: 'Oswald', label: 'Oswald Bold', weight: '700', category: 'Impact' },
+  { value: 'Raleway', label: 'Raleway', weight: '400', category: 'Impact' },
+  { value: 'Raleway', label: 'Raleway Bold', weight: '700', category: 'Impact' },
+  
+  // Manuscrites
+  { value: 'Dancing Script', label: 'Dancing Script', weight: '400', category: 'Manuscrite' },
+  { value: 'Dancing Script', label: 'Dancing Script Bold', weight: '700', category: 'Manuscrite' },
+  { value: 'Great Vibes', label: 'Great Vibes', weight: '400', category: 'Manuscrite' },
+  
+  // Standards
+  { value: 'Arial', label: 'Arial', weight: '400', category: 'Standard' },
+  { value: 'Arial', label: 'Arial Bold', weight: '700', category: 'Standard' },
+  { value: 'Georgia', label: 'Georgia', weight: '400', category: 'Standard' },
+  { value: 'Georgia', label: 'Georgia Bold', weight: '700', category: 'Standard' },
 ];
 
-const FIELD_TYPES = [
-  { value: 'name', label: 'Nom du participant' },
-  { value: 'date', label: 'Date' },
-  { value: 'title', label: 'Titre/Fonction' },
-  { value: 'serial', label: 'Numéro de série' },
-  { value: 'custom', label: 'Texte libre' },
+// 6 couleurs prédéfinies simples
+const COLORS = [
+  '#000000', // Noir
+  '#ffffff', // Blanc
+  '#1e40af', // Bleu
+  '#dc2626', // Rouge
+  '#16a34a', // Vert
+  '#7c3aed', // Violet
 ];
 
-const DEFAULT_COLORS = [
-  '#1e1b4b', // Dark blue
-  '#6366f1', // Primary purple
-  '#64748b', // Slate
-  '#000000', // Black
-  '#ffffff', // White
-  '#dc2626', // Red
-  '#16a34a', // Green
+// 3 tailles simples
+const SIZES = [
+  { value: 18, label: 'P', title: 'Petit' },
+  { value: 28, label: 'M', title: 'Moyen' },
+  { value: 42, label: 'G', title: 'Grand' },
 ];
 
 export const DocumentFieldEditor = ({ 
   textElements, 
   onChange, 
   canvasWidth, 
-  canvasHeight 
+  canvasHeight,
+  selectedFieldId,
+  onSelectField
 }: DocumentFieldEditorProps) => {
-  const [expandedField, setExpandedField] = useState<string | null>(null);
 
   const addField = () => {
     const newField: TextElement = {
       id: `field-${Date.now()}`,
-      label: 'Nouveau champ',
-      value: 'Texte par défaut',
+      label: 'Texte',
+      value: 'Nouveau texte',
       x: canvasWidth / 2,
       y: textElements.length * 60 + 150,
-      fontSize: 24,
-      fontFamily: 'Arial',
-      color: '#1e1b4b',
-      fontWeight: 'normal',
+      fontSize: 28,
+      fontFamily: 'Montserrat',
+      color: '#000000',
+      fontWeight: '400',
       isDraggable: true,
       fieldType: 'custom',
       required: false,
       placeholder: '',
     };
     onChange([...textElements, newField]);
-    setExpandedField(newField.id);
+    onSelectField?.(newField.id);
   };
 
   const updateField = (id: string, updates: Partial<TextElement>) => {
@@ -91,28 +122,30 @@ export const DocumentFieldEditor = ({
 
   const removeField = (id: string) => {
     onChange(textElements.filter(elem => elem.id !== id));
-    if (expandedField === id) setExpandedField(null);
+    if (selectedFieldId === id) onSelectField?.(null);
   };
 
-  const moveField = (id: string, direction: 'up' | 'down') => {
-    const index = textElements.findIndex(e => e.id === id);
-    if (
-      (direction === 'up' && index === 0) || 
-      (direction === 'down' && index === textElements.length - 1)
-    ) return;
+  const centerField = (id: string) => {
+    updateField(id, { x: canvasWidth / 2 });
+  };
 
-    const newElements = [...textElements];
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    [newElements[index], newElements[targetIndex]] = [newElements[targetIndex], newElements[index]];
-    onChange(newElements);
+  const selectedField = textElements.find(e => e.id === selectedFieldId);
+
+  // Trouver la police+poids actuelle
+  const getCurrentFontKey = (field: TextElement) => {
+    const match = FONT_OPTIONS.find(
+      f => f.value === field.fontFamily && f.weight === field.fontWeight
+    );
+    return match ? `${match.value}|${match.weight}` : `${field.fontFamily}|${field.fontWeight}`;
   };
 
   return (
     <div className="space-y-4">
+      {/* Header simple */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium flex items-center gap-2">
           <Type className="w-4 h-4" />
-          Champs de texte ({textElements.length})
+          Textes ({textElements.length})
         </h3>
         <Button variant="outline" size="sm" onClick={addField}>
           <Plus className="w-4 h-4 mr-1" />
@@ -120,246 +153,141 @@ export const DocumentFieldEditor = ({
         </Button>
       </div>
 
+      {/* État vide */}
       {textElements.length === 0 && (
-        <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-xl">
-          <Type className="w-8 h-8 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">Aucun champ de texte</p>
-          <p className="text-xs mt-1">Cliquez sur "Ajouter" pour créer un champ</p>
+        <div className="text-center py-6 text-muted-foreground border-2 border-dashed rounded-xl">
+          <Type className="w-6 h-6 mx-auto mb-2 opacity-50" />
+          <p className="text-sm">Aucun texte</p>
+          <p className="text-xs mt-1">Cliquez sur "Ajouter"</p>
         </div>
       )}
 
-      <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
-        {textElements.map((elem, index) => (
-          <Collapsible
+      {/* Liste compacte des champs */}
+      <div className="space-y-2">
+        {textElements.map((elem) => (
+          <div
             key={elem.id}
-            open={expandedField === elem.id}
-            onOpenChange={(open) => setExpandedField(open ? elem.id : null)}
+            onClick={() => onSelectField?.(elem.id)}
+            className={cn(
+              "p-3 rounded-lg border cursor-pointer transition-all",
+              selectedFieldId === elem.id
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-primary/50"
+            )}
           >
-            <div className="border rounded-lg bg-card">
-              <CollapsibleTrigger asChild>
-                <div className="flex items-center gap-2 p-3 cursor-pointer hover:bg-muted/50 transition-colors">
-                  <GripVertical className="w-4 h-4 text-muted-foreground" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{elem.label}</p>
-                    <p className="text-xs text-muted-foreground truncate">{elem.value}</p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={(e) => { e.stopPropagation(); moveField(elem.id, 'up'); }}
-                      disabled={index === 0}
-                    >
-                      <ChevronUp className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={(e) => { e.stopPropagation(); moveField(elem.id, 'down'); }}
-                      disabled={index === textElements.length - 1}
-                    >
-                      <ChevronDown className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-destructive hover:text-destructive"
-                      onClick={(e) => { e.stopPropagation(); removeField(elem.id); }}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CollapsibleTrigger>
-
-              <CollapsibleContent>
-                <div className="p-3 pt-0 space-y-4 border-t">
-                  {/* Field Type */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Type de champ</label>
-                      <Select
-                        value={elem.fieldType || 'custom'}
-                        onValueChange={(v) => updateField(elem.id, { 
-                          fieldType: v as TextElement['fieldType'],
-                          label: FIELD_TYPES.find(t => t.value === v)?.label || elem.label
-                        })}
-                      >
-                        <SelectTrigger className="h-9">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {FIELD_TYPES.map(type => (
-                            <SelectItem key={type.value} value={type.value}>
-                              {type.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex items-end gap-2">
-                      <label className="flex items-center gap-2 text-xs cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={elem.required || false}
-                          onChange={(e) => updateField(elem.id, { required: e.target.checked })}
-                          className="rounded border-input"
-                        />
-                        Obligatoire
-                      </label>
-                      <label className="flex items-center gap-2 text-xs cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={elem.isDraggable}
-                          onChange={(e) => updateField(elem.id, { isDraggable: e.target.checked })}
-                          className="rounded border-input"
-                        />
-                        Déplaçable
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Label & Value */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Libellé</label>
-                      <input
-                        type="text"
-                        value={elem.label}
-                        onChange={(e) => updateField(elem.id, { label: e.target.value })}
-                        className="w-full px-3 py-2 rounded-lg bg-background border border-input text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Valeur par défaut</label>
-                      <input
-                        type="text"
-                        value={elem.value}
-                        onChange={(e) => updateField(elem.id, { value: e.target.value })}
-                        className="w-full px-3 py-2 rounded-lg bg-background border border-input text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Placeholder */}
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Placeholder (aide à la saisie)</label>
-                    <input
-                      type="text"
-                      value={elem.placeholder || ''}
-                      onChange={(e) => updateField(elem.id, { placeholder: e.target.value })}
-                      placeholder="Ex: Entrez votre nom complet..."
-                      className="w-full px-3 py-2 rounded-lg bg-background border border-input text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-                    />
-                  </div>
-
-                  {/* Font Settings */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Police</label>
-                      <Select
-                        value={elem.fontFamily}
-                        onValueChange={(v) => updateField(elem.id, { fontFamily: v })}
-                      >
-                        <SelectTrigger className="h-9">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {FONT_FAMILIES.map(font => (
-                            <SelectItem key={font} value={font} style={{ fontFamily: font }}>
-                              {font}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">
-                        Taille ({elem.fontSize}px)
-                      </label>
-                      <Slider
-                        value={[elem.fontSize]}
-                        min={12}
-                        max={72}
-                        step={1}
-                        onValueChange={([v]) => updateField(elem.id, { fontSize: v })}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Style & Color */}
-                  <div className="flex items-center gap-3">
-                    <div className="flex gap-1">
-                      <Button
-                        variant={elem.fontWeight === 'bold' ? 'default' : 'outline'}
-                        size="icon"
-                        className="h-9 w-9"
-                        onClick={() => updateField(elem.id, { 
-                          fontWeight: elem.fontWeight === 'bold' ? 'normal' : 'bold' 
-                        })}
-                      >
-                        <Bold className="w-4 h-4" />
-                      </Button>
-                    </div>
-                    <div className="flex-1 flex items-center gap-2">
-                      <label className="text-xs text-muted-foreground">Couleur</label>
-                      <div className="flex gap-1">
-                        {DEFAULT_COLORS.map(color => (
-                          <button
-                            key={color}
-                            onClick={() => updateField(elem.id, { color })}
-                            className={cn(
-                              "w-6 h-6 rounded-full border-2 transition-transform hover:scale-110",
-                              elem.color === color ? "border-primary" : "border-transparent"
-                            )}
-                            style={{ backgroundColor: color }}
-                          />
-                        ))}
-                        <input
-                          type="color"
-                          value={elem.color}
-                          onChange={(e) => updateField(elem.id, { color: e.target.value })}
-                          className="w-6 h-6 rounded-full overflow-hidden cursor-pointer"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Position */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">
-                        Position X ({Math.round(elem.x)})
-                      </label>
-                      <Slider
-                        value={[elem.x]}
-                        min={0}
-                        max={canvasWidth}
-                        step={1}
-                        onValueChange={([v]) => updateField(elem.id, { x: v })}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">
-                        Position Y ({Math.round(elem.y)})
-                      </label>
-                      <Slider
-                        value={[elem.y]}
-                        min={0}
-                        max={canvasHeight}
-                        step={1}
-                        onValueChange={([v]) => updateField(elem.id, { y: v })}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </CollapsibleContent>
-            </div>
-          </Collapsible>
+            {/* Nom du champ éditable */}
+            <input
+              type="text"
+              value={elem.value}
+              onChange={(e) => updateField(elem.id, { value: e.target.value })}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full bg-transparent text-sm font-medium focus:outline-none"
+              placeholder="Texte..."
+            />
+          </div>
         ))}
       </div>
+
+      {/* Barre d'options - visible seulement si un champ est sélectionné */}
+      {selectedField && (
+        <div className="p-3 rounded-xl bg-secondary/50 border space-y-3">
+          {/* Ligne 1: Taille */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground w-12">Taille</span>
+            <div className="flex gap-1 flex-1">
+              {SIZES.map((size) => (
+                <button
+                  key={size.value}
+                  onClick={() => updateField(selectedField.id, { fontSize: size.value })}
+                  title={size.title}
+                  className={cn(
+                    "flex-1 py-1.5 rounded text-sm font-medium transition-all",
+                    selectedField.fontSize === size.value
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-background border hover:bg-muted"
+                  )}
+                  style={{ fontSize: size.value === 18 ? 12 : size.value === 28 ? 14 : 16 }}
+                >
+                  {size.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Ligne 2: Police */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground w-12">Police</span>
+            <Select
+              value={getCurrentFontKey(selectedField)}
+              onValueChange={(v) => {
+                const [font, weight] = v.split('|');
+                updateField(selectedField.id, { fontFamily: font, fontWeight: weight });
+              }}
+            >
+              <SelectTrigger className="flex-1 h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px]">
+                {FONT_OPTIONS.map((font, idx) => (
+                  <SelectItem 
+                    key={`${font.value}-${font.weight}-${idx}`} 
+                    value={`${font.value}|${font.weight}`}
+                    style={{ fontFamily: font.value, fontWeight: font.weight }}
+                  >
+                    {font.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Ligne 3: Couleur + Actions */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground w-12">Couleur</span>
+            <div className="flex gap-1 flex-1">
+              {COLORS.map(color => (
+                <button
+                  key={color}
+                  onClick={() => updateField(selectedField.id, { color })}
+                  className={cn(
+                    "w-7 h-7 rounded-full border-2 transition-transform hover:scale-110",
+                    selectedField.color === color ? "border-primary ring-2 ring-primary/30" : "border-muted",
+                    color === '#ffffff' && "border-gray-300"
+                  )}
+                  style={{ backgroundColor: color }}
+                />
+              ))}
+            </div>
+            
+            {/* Boutons actions */}
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => centerField(selectedField.id)}
+              title="Centrer"
+            >
+              <AlignCenter className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 text-destructive hover:text-destructive"
+              onClick={() => removeField(selectedField.id)}
+              title="Supprimer"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Hint pour drag & drop */}
+      {textElements.length > 0 && (
+        <p className="text-xs text-muted-foreground text-center">
+          👆 Glissez les textes sur l'aperçu pour les positionner
+        </p>
+      )}
     </div>
   );
 };

@@ -30,7 +30,11 @@ export function VisualGenerator({ event, isOpen, onClose, onVisualCreated }: Vis
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
-  const generateVisual = useCallback(async () => {
+  // Résolutions pour export HD
+  const EXPORT_SIZE = 2160; // 2160x2160 pour une qualité Instagram HD
+  const PREVIEW_SIZE = 540; // Aperçu rapide
+
+  const generateVisual = useCallback(async (forExport = false) => {
     const canvas = canvasRef.current;
     if (!canvas || !userPhoto || !name) return;
 
@@ -40,9 +44,12 @@ export function VisualGenerator({ event, isOpen, onClose, onVisualCreated }: Vis
     setIsGenerating(true);
 
     try {
-      // Set canvas size
-      canvas.width = 1080;
-      canvas.height = 1080;
+      // Utiliser la taille HD pour l'export, aperçu sinon
+      const size = forExport ? EXPORT_SIZE : PREVIEW_SIZE;
+      const scale = size / PREVIEW_SIZE;
+      
+      canvas.width = size;
+      canvas.height = size;
 
       // Load and draw user photo first (background)
       const photoImg = new Image();
@@ -55,8 +62,8 @@ export function VisualGenerator({ event, isOpen, onClose, onVisualCreated }: Vis
 
       // Calculate dimensions to fit photo
       const photoAspect = photoImg.width / photoImg.height;
-      let drawWidth = canvas.width * zoom;
-      let drawHeight = canvas.height * zoom;
+      let drawWidth = size * zoom;
+      let drawHeight = size * zoom;
 
       if (photoAspect > 1) {
         drawHeight = drawWidth / photoAspect;
@@ -64,8 +71,8 @@ export function VisualGenerator({ event, isOpen, onClose, onVisualCreated }: Vis
         drawWidth = drawHeight * photoAspect;
       }
 
-      const x = (canvas.width - drawWidth) / 2 + offsetX;
-      const y = (canvas.height - drawHeight) / 2 + offsetY;
+      const x = (size - drawWidth) / 2 + offsetX * scale;
+      const y = (size - drawHeight) / 2 + offsetY * scale;
 
       ctx.drawImage(photoImg, x, y, drawWidth, drawHeight);
 
@@ -78,38 +85,38 @@ export function VisualGenerator({ event, isOpen, onClose, onVisualCreated }: Vis
         frameImg.src = event.frame_image;
       });
 
-      ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
+      ctx.drawImage(frameImg, 0, 0, size, size);
 
-      // Add user name with neon effect
+      // Add user name with neon effect - tailles adaptées
       ctx.save();
-      ctx.font = 'bold 48px Outfit, sans-serif';
+      ctx.font = `bold ${48 * scale}px Outfit, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
       
       // Neon glow effect
       ctx.shadowColor = '#ff1493';
-      ctx.shadowBlur = 20;
+      ctx.shadowBlur = 20 * scale;
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(name.toUpperCase(), canvas.width / 2, canvas.height - 80);
+      ctx.fillText(name.toUpperCase(), size / 2, size - 80 * scale);
       
       // Double pass for stronger glow
-      ctx.shadowBlur = 40;
-      ctx.fillText(name.toUpperCase(), canvas.width / 2, canvas.height - 80);
+      ctx.shadowBlur = 40 * scale;
+      ctx.fillText(name.toUpperCase(), size / 2, size - 80 * scale);
       ctx.restore();
 
       // Add "J'Y SERAI" badge
       ctx.save();
-      ctx.font = 'bold 32px Outfit, sans-serif';
+      ctx.font = `bold ${32 * scale}px Outfit, sans-serif`;
       ctx.textAlign = 'center';
       ctx.fillStyle = '#00ffff';
       ctx.shadowColor = '#00ffff';
-      ctx.shadowBlur = 15;
-      ctx.fillText("J'Y SERAI !", canvas.width / 2, canvas.height - 30);
+      ctx.shadowBlur = 15 * scale;
+      ctx.fillText("J'Y SERAI !", size / 2, size - 30 * scale);
       ctx.restore();
 
       // NOTE: No QR code is added to prevent ticket theft
       
-      const dataUrl = canvas.toDataURL('image/png');
+      const dataUrl = canvas.toDataURL('image/png', 1.0);
       setGeneratedVisual(dataUrl);
 
     } catch (error) {
@@ -136,18 +143,30 @@ export function VisualGenerator({ event, isOpen, onClose, onVisualCreated }: Vis
     }
   };
 
-  const handleDownload = () => {
-    if (!generatedVisual) return;
+  const handleDownload = async () => {
+    if (!userPhoto || !name) return;
     
-    const link = document.createElement('a');
-    link.download = `jyserai-${event.title.replace(/\s+/g, '-')}.png`;
-    link.href = generatedVisual;
-    link.click();
+    // Générer en HD pour le téléchargement
+    await generateVisual(true);
     
-    toast({
-      title: 'Téléchargé !',
-      description: 'Partagez votre visuel sur les réseaux sociaux',
-    });
+    // Petit délai pour s'assurer que le canvas est prêt
+    setTimeout(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      
+      const link = document.createElement('a');
+      link.download = `jyserai-${event.title.replace(/\s+/g, '-')}-HD.png`;
+      link.href = canvas.toDataURL('image/png', 1.0);
+      link.click();
+      
+      toast({
+        title: 'Téléchargé en HD !',
+        description: 'Image 2160x2160px - Qualité optimale pour les réseaux',
+      });
+      
+      // Regénérer en aperçu
+      generateVisual(false);
+    }, 100);
   };
 
   const handleShare = async () => {
@@ -372,7 +391,7 @@ export function VisualGenerator({ event, isOpen, onClose, onVisualCreated }: Vis
               <Button
                 className="w-full btn-neon gradient-primary text-white"
                 disabled={!userPhoto || !name || isGenerating}
-                onClick={generateVisual}
+                onClick={() => generateVisual(false)}
               >
                 {isGenerating ? (
                   <>
