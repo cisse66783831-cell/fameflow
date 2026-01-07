@@ -8,11 +8,12 @@ import { CreateCampaignModal } from './CreateCampaignModal';
 import { EditCampaignModal } from './EditCampaignModal';
 import { PhotoEditor } from './PhotoEditor';
 import { AnalyticsChart } from './AnalyticsChart';
+import { BatchGenerator } from './BatchGenerator';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Plus, Eye, Download, Layers, Beaker, 
-  ArrowLeft, Zap, Sparkles, LogOut, BarChart3, LayoutGrid
+  ArrowLeft, Zap, Sparkles, LogOut, BarChart3, LayoutGrid, Users
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -73,6 +74,9 @@ export const Dashboard = () => {
     }
   };
 
+  // Check if campaign is a document type for batch generation
+  const isDocumentCampaign = selectedCampaign?.type === 'document';
+
   if (selectedCampaign) {
     return (
       <div className="min-h-screen bg-background">
@@ -82,7 +86,7 @@ export const Dashboard = () => {
             className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Back to Dashboard</span>
+            <span>Retour au Dashboard</span>
           </button>
 
           <div className="mb-8">
@@ -92,7 +96,30 @@ export const Dashboard = () => {
             <p className="text-muted-foreground mt-1">{selectedCampaign.description}</p>
           </div>
 
-          <PhotoEditor campaign={selectedCampaign} onDownload={handleDownload} />
+          {isDocumentCampaign ? (
+            <Tabs defaultValue="editor" className="space-y-6">
+              <TabsList>
+                <TabsTrigger value="editor" className="gap-2">
+                  <LayoutGrid className="w-4 h-4" />
+                  Éditeur
+                </TabsTrigger>
+                <TabsTrigger value="batch" className="gap-2">
+                  <Users className="w-4 h-4" />
+                  Génération par lot
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="editor">
+                <PhotoEditor campaign={selectedCampaign} onDownload={handleDownload} />
+              </TabsContent>
+
+              <TabsContent value="batch">
+                <BatchGenerator campaign={selectedCampaign} />
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <PhotoEditor campaign={selectedCampaign} onDownload={handleDownload} />
+          )}
         </div>
       </div>
     );
