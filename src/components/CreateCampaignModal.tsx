@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Campaign } from '@/types/campaign';
+import { Campaign, TextElement, DocumentFormat, DocumentCategory } from '@/types/campaign';
 import { Button } from '@/components/ui/button';
 import { 
   Dialog,
@@ -17,12 +17,21 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Image, FileText, Upload, Sparkles, X, Loader2, Wand2, Video, AlertCircle, Check, Camera, Play, Square } from 'lucide-react';
+import { Image, FileText, Upload, Sparkles, X, Loader2, Wand2, Video, AlertCircle, Check, Camera, Play, Square, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useStorage } from '@/hooks/useStorage';
 import { supabase } from '@/integrations/supabase/client';
 import { compressImage, needsCompression, formatFileSize } from '@/utils/imageCompression';
+import { DocumentFieldEditor } from './DocumentFieldEditor';
+import { DocumentTemplateSelector } from './DocumentTemplateSelector';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface CreateCampaignModalProps {
   open: boolean;
@@ -32,8 +41,25 @@ interface CreateCampaignModalProps {
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 
+const DOCUMENT_FORMATS: { value: DocumentFormat; label: string; dimensions: string }[] = [
+  { value: 'a4-landscape', label: 'A4 Paysage', dimensions: '800 × 566' },
+  { value: 'a4-portrait', label: 'A4 Portrait', dimensions: '566 × 800' },
+  { value: 'square', label: 'Carré', dimensions: '600 × 600' },
+  { value: 'badge', label: 'Badge', dimensions: '500 × 300' },
+];
+
+const getCanvasDimensions = (format: DocumentFormat) => {
+  switch (format) {
+    case 'a4-landscape': return { width: 800, height: 566 };
+    case 'a4-portrait': return { width: 566, height: 800 };
+    case 'square': return { width: 600, height: 600 };
+    case 'badge': return { width: 500, height: 300 };
+    default: return { width: 800, height: 566 };
+  }
+};
+
 export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignModalProps) => {
-  const [step, setStep] = useState<'type' | 'details'>('type');
+  const [step, setStep] = useState<'type' | 'document-config' | 'details'>('type');
   const [type, setType] = useState<'photo' | 'document' | 'video_filter'>('photo');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -55,8 +81,18 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
   const [showCompressionDialog, setShowCompressionDialog] = useState(false);
   const [pendingFile, setPendingFile] = useState<{ file: File; target: 'main' | 'portrait' | 'landscape' } | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
+  
+  // Document-specific state
+  const [documentFormat, setDocumentFormat] = useState<DocumentFormat>('a4-landscape');
+  const [documentCategory, setDocumentCategory] = useState<DocumentCategory>('attestation');
+  const [textElements, setTextElements] = useState<TextElement[]>([]);
+  const [backgroundImage, setBackgroundImage] = useState<string>('');
+  const [backgroundFile, setBackgroundFile] = useState<File | null>(null);
+  const [showTemplateSelector, setShowTemplateSelector] = useState(true);
+  
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const { uploadImage } = useStorage();
 
   // Debounced slug check
@@ -249,12 +285,15 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
         frameImage: uploadedUrl,
         frameImagePortrait: uploadedPortraitUrl || undefined,
         frameImageLandscape: uploadedLandscapeUrl || undefined,
-        textElements: [],
+        backgroundImage: type === 'document' ? uploadedUrl : undefined,
+        textElements: type === 'document' ? textElements : [],
         hashtags: hashtags.split(' ').filter(h => h.startsWith('#')),
         views: 0,
         downloads: 0,
         createdAt: new Date(),
         slug: slug.trim().toLowerCase() || undefined,
+        documentFormat: type === 'document' ? documentFormat : undefined,
+        documentCategory: type === 'document' ? documentCategory : undefined,
       };
 
       onCreate(campaign);
@@ -285,6 +324,13 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
     setSlugAvailable(null);
     setShowPreview(false);
     setIsCameraActive(false);
+    // Reset document state
+    setDocumentFormat('a4-landscape');
+    setDocumentCategory('attestation');
+    setTextElements([]);
+    setBackgroundImage('');
+    setBackgroundFile(null);
+    setShowTemplateSelector(true);
     onClose();
   };
 
@@ -367,7 +413,9 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-display text-xl">
-            {step === 'type' ? 'Choisir le type de campagne' : 'Détails de la campagne'}
+            {step === 'type' && 'Choisir le type de campagne'}
+            {step === 'document-config' && 'Configuration du document'}
+            {step === 'details' && 'Détails de la campagne'}
           </DialogTitle>
         </DialogHeader>
 
@@ -420,7 +468,8 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
             <button
               onClick={() => {
                 setType('document');
-                setStep('details');
+                setStep('document-config');
+                setShowTemplateSelector(true);
               }}
               className={cn(
                 "p-4 rounded-xl border-2 border-dashed transition-all",
@@ -434,10 +483,172 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
               <div>
                 <p className="font-medium text-sm">Document</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Certificats
+                  Attestations & Certificats
                 </p>
               </div>
             </button>
+          </div>
+        ) : step === 'document-config' ? (
+          <div className="space-y-6 mt-4">
+            {showTemplateSelector ? (
+              <DocumentTemplateSelector
+                onSelect={(template) => {
+                  if (template.documentFormat) setDocumentFormat(template.documentFormat);
+                  if (template.documentCategory) setDocumentCategory(template.documentCategory);
+                  if (template.textElements) setTextElements(template.textElements);
+                  if (template.backgroundImage) setBackgroundImage(template.backgroundImage);
+                  setShowTemplateSelector(false);
+                }}
+              />
+            ) : (
+              <>
+                {/* Format Selection */}
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Format du document</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {DOCUMENT_FORMATS.map(format => (
+                      <button
+                        key={format.value}
+                        onClick={() => setDocumentFormat(format.value)}
+                        className={cn(
+                          "p-3 rounded-lg border-2 text-left transition-all",
+                          documentFormat === format.value
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/50"
+                        )}
+                      >
+                        <p className="font-medium text-sm">{format.label}</p>
+                        <p className="text-xs text-muted-foreground">{format.dimensions}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Background Upload */}
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    Image de fond
+                    <span className="text-xs text-muted-foreground ml-2">(optionnel)</span>
+                  </label>
+                  <label className="cursor-pointer block">
+                    {backgroundImage ? (
+                      <div className="relative group">
+                        <img 
+                          src={backgroundImage} 
+                          alt="Background Preview" 
+                          className="w-full h-40 object-contain bg-muted/50 rounded-xl"
+                        />
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setBackgroundImage('');
+                            setBackgroundFile(null);
+                          }}
+                          className="absolute top-2 right-2 p-1.5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="border-2 border-dashed rounded-xl p-8 text-center hover:border-primary hover:bg-primary/5 transition-all">
+                        <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                        <p className="text-sm text-muted-foreground">Cliquez pour uploader un fond</p>
+                        <p className="text-xs text-muted-foreground mt-1">PNG, JPG - Max 2 Mo</p>
+                      </div>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const previewUrl = URL.createObjectURL(file);
+                          setBackgroundFile(file);
+                          setBackgroundImage(previewUrl);
+                        }
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                {/* Text Elements Editor */}
+                <DocumentFieldEditor
+                  textElements={textElements}
+                  onChange={setTextElements}
+                  canvasWidth={getCanvasDimensions(documentFormat).width}
+                  canvasHeight={getCanvasDimensions(documentFormat).height}
+                />
+
+                {/* Document Preview */}
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Aperçu</label>
+                  <div 
+                    className="relative bg-muted/30 rounded-xl overflow-hidden mx-auto border"
+                    style={{ 
+                      width: '100%',
+                      maxWidth: 400,
+                      aspectRatio: `${getCanvasDimensions(documentFormat).width} / ${getCanvasDimensions(documentFormat).height}`
+                    }}
+                  >
+                    {backgroundImage && (
+                      <img 
+                        src={backgroundImage} 
+                        alt="Background" 
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                    )}
+                    <svg 
+                      viewBox={`0 0 ${getCanvasDimensions(documentFormat).width} ${getCanvasDimensions(documentFormat).height}`}
+                      className="absolute inset-0 w-full h-full"
+                    >
+                      {textElements.map(elem => (
+                        <text
+                          key={elem.id}
+                          x={elem.x}
+                          y={elem.y}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          fontSize={elem.fontSize}
+                          fontFamily={elem.fontFamily}
+                          fontWeight={elem.fontWeight}
+                          fill={elem.color}
+                        >
+                          {elem.value}
+                        </text>
+                      ))}
+                    </svg>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Navigation */}
+            <div className="flex gap-3 pt-2">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  if (showTemplateSelector) {
+                    setStep('type');
+                  } else {
+                    setShowTemplateSelector(true);
+                  }
+                }} 
+                className="flex-1"
+              >
+                Retour
+              </Button>
+              {!showTemplateSelector && (
+                <Button 
+                  variant="gradient" 
+                  onClick={() => setStep('details')} 
+                  className="flex-1"
+                >
+                  Continuer
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              )}
+            </div>
           </div>
         ) : (
           <div className="space-y-4 mt-4">
