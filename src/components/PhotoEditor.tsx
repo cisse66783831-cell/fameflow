@@ -29,7 +29,20 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
   const [textDragStart, setTextDragStart] = useState({ x: 0, y: 0, elemX: 0, elemY: 0 });
   const [imageBlob, setImageBlob] = useState<Blob | null>(null);
 
-  const CANVAS_SIZE = 400;
+  // Calculate canvas size based on document format
+  const getCanvasSize = () => {
+    if (campaign.type === 'document' && campaign.documentFormat) {
+      switch (campaign.documentFormat) {
+        case 'a4-landscape': return { width: 800, height: 566 };
+        case 'a4-portrait': return { width: 566, height: 800 };
+        case 'square': return { width: 600, height: 600 };
+        case 'badge': return { width: 500, height: 300 };
+      }
+    }
+    return { width: 400, height: 400 };
+  };
+
+  const { width: CANVAS_WIDTH, height: CANVAS_HEIGHT } = getCanvasSize();
 
   const drawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -38,7 +51,7 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
     // Helper to load image with CORS
     const loadImage = (src: string): Promise<HTMLImageElement> => {
@@ -56,11 +69,11 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
       const img = new Image();
       img.onload = async () => {
         ctx.save();
-        ctx.translate(CANVAS_SIZE / 2, CANVAS_SIZE / 2);
+        ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
         ctx.rotate((rotation * Math.PI) / 180);
         ctx.scale(zoom, zoom);
         
-        const scale = Math.max(CANVAS_SIZE / img.width, CANVAS_SIZE / img.height);
+        const scale = Math.max(CANVAS_WIDTH / img.width, CANVAS_HEIGHT / img.height);
         const w = img.width * scale;
         const h = img.height * scale;
         
@@ -77,7 +90,7 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
         if (campaign.frameImage) {
           try {
             const frame = await loadImage(campaign.frameImage);
-            ctx.drawImage(frame, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            ctx.drawImage(frame, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
           } catch (e) {
             console.error('Failed to load frame:', e);
           }
@@ -88,28 +101,28 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
     } else if (campaign.type === 'document' && campaign.backgroundImage) {
       // Document type - draw background
       loadImage(campaign.backgroundImage).then((bg) => {
-        ctx.drawImage(bg, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+        ctx.drawImage(bg, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
         drawTextElements(ctx);
       }).catch(console.error);
     } else if (campaign.frameImage) {
       // Just draw the frame
       loadImage(campaign.frameImage).then((frame) => {
-        ctx.drawImage(frame, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+        ctx.drawImage(frame, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
         drawTextElements(ctx);
       }).catch(console.error);
     }
-  }, [userPhoto, zoom, rotation, offset, campaign, textElements]);
+  }, [userPhoto, zoom, rotation, offset, campaign, textElements, CANVAS_WIDTH, CANVAS_HEIGHT]);
 
   const drawTextElements = (ctx: CanvasRenderingContext2D) => {
     textElements.forEach((elem) => {
       ctx.save();
-      ctx.font = `${elem.fontWeight} ${elem.fontSize * (CANVAS_SIZE / 800)}px ${elem.fontFamily}`;
+      ctx.font = `${elem.fontWeight} ${elem.fontSize * (CANVAS_WIDTH / 800)}px ${elem.fontFamily}`;
       ctx.fillStyle = elem.color;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       
-      const x = elem.x * (CANVAS_SIZE / 800);
-      const y = elem.y * (CANVAS_SIZE / 600);
+      const x = elem.x * (CANVAS_WIDTH / 800);
+      const y = elem.y * (CANVAS_HEIGHT / 600);
       
       ctx.fillText(elem.value, x, y);
       
@@ -176,15 +189,15 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
 
     const { clientX, clientY } = getEventCoords(e);
     const rect = canvas.getBoundingClientRect();
-    const x = (clientX - rect.left) * (CANVAS_SIZE / rect.width);
-    const y = (clientY - rect.top) * (CANVAS_SIZE / rect.height);
+    const x = (clientX - rect.left) * (CANVAS_WIDTH / rect.width);
+    const y = (clientY - rect.top) * (CANVAS_HEIGHT / rect.height);
 
     // Check if clicking on a draggable text element
     const clickedText = textElements.find(elem => {
       if (!elem.isDraggable) return false;
-      const elemX = elem.x * (CANVAS_SIZE / 800);
-      const elemY = elem.y * (CANVAS_SIZE / 600);
-      const size = elem.fontSize * (CANVAS_SIZE / 800);
+      const elemX = elem.x * (CANVAS_WIDTH / 800);
+      const elemY = elem.y * (CANVAS_HEIGHT / 600);
+      const size = elem.fontSize * (CANVAS_WIDTH / 800);
       return Math.abs(x - elemX) < 100 && Math.abs(y - elemY) < size;
     });
 
@@ -213,11 +226,11 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
 
     if (selectedText) {
       const rect = canvas.getBoundingClientRect();
-      const x = (clientX - rect.left) * (CANVAS_SIZE / rect.width);
-      const y = (clientY - rect.top) * (CANVAS_SIZE / rect.height);
+      const x = (clientX - rect.left) * (CANVAS_WIDTH / rect.width);
+      const y = (clientY - rect.top) * (CANVAS_HEIGHT / rect.height);
 
-      const deltaX = (x - textDragStart.x) * (800 / CANVAS_SIZE);
-      const deltaY = (y - textDragStart.y) * (600 / CANVAS_SIZE);
+      const deltaX = (x - textDragStart.x) * (800 / CANVAS_WIDTH);
+      const deltaY = (y - textDragStart.y) * (600 / CANVAS_HEIGHT);
 
       setTextElements(prev => prev.map(elem => 
         elem.id === selectedText
@@ -301,8 +314,8 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
         <div className="relative inline-block">
           <canvas
             ref={canvasRef}
-            width={CANVAS_SIZE}
-            height={CANVAS_SIZE}
+            width={CANVAS_WIDTH}
+            height={CANVAS_HEIGHT}
             onMouseDown={handleStart}
             onMouseMove={handleMove}
             onMouseUp={handleEnd}
