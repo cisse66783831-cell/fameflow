@@ -29,7 +29,7 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
   const [textDragStart, setTextDragStart] = useState({ x: 0, y: 0, elemX: 0, elemY: 0 });
   const [imageBlob, setImageBlob] = useState<Blob | null>(null);
 
-  // Calculate canvas size based on document format
+  // Calculate canvas size based on document format (aperçu)
   const getCanvasSize = () => {
     if (campaign.type === 'document' && campaign.documentFormat) {
       switch (campaign.documentFormat) {
@@ -42,7 +42,21 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
     return { width: 400, height: 400 };
   };
 
+  // Résolutions HD pour export 300 DPI
+  const getHDSize = () => {
+    if (campaign.type === 'document' && campaign.documentFormat) {
+      switch (campaign.documentFormat) {
+        case 'a4-landscape': return { width: 3508, height: 2480 }; // A4 300 DPI
+        case 'a4-portrait': return { width: 2480, height: 3508 }; // A4 300 DPI
+        case 'square': return { width: 2400, height: 2400 };
+        case 'badge': return { width: 2000, height: 1200 };
+      }
+    }
+    return { width: 2400, height: 2400 }; // Photo frame HD
+  };
+
   const { width: CANVAS_WIDTH, height: CANVAS_HEIGHT } = getCanvasSize();
+  const HD_SIZE = getHDSize();
 
   const drawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -249,56 +263,204 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
     setIsDragging(false);
   };
 
-  const handleDownload = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  const handleDownload = async () => {
+    // Créer un canvas HD pour l'export
+    const hdCanvas = document.createElement('canvas');
+    hdCanvas.width = HD_SIZE.width;
+    hdCanvas.height = HD_SIZE.height;
+    const hdCtx = hdCanvas.getContext('2d');
+    if (!hdCtx) return;
 
-    const link = document.createElement('a');
-    link.download = `${campaign.title.replace(/\s+/g, '-')}.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-    
-    onDownload();
-    toast.success('Image downloaded!');
+    const scaleX = HD_SIZE.width / CANVAS_WIDTH;
+    const scaleY = HD_SIZE.height / CANVAS_HEIGHT;
+
+    // Helper to load image with CORS
+    const loadImage = (src: string): Promise<HTMLImageElement> => {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+      });
+    };
+
+    try {
+      // Draw background or user photo
+      if (userPhoto) {
+        const img = await loadImage(userPhoto);
+        hdCtx.save();
+        hdCtx.translate(HD_SIZE.width / 2, HD_SIZE.height / 2);
+        hdCtx.rotate((rotation * Math.PI) / 180);
+        hdCtx.scale(zoom, zoom);
+        
+        const scale = Math.max(HD_SIZE.width / img.width, HD_SIZE.height / img.height);
+        const w = img.width * scale;
+        const h = img.height * scale;
+        
+        hdCtx.drawImage(
+          img,
+          -w / 2 + offset.x * scaleX,
+          -h / 2 + offset.y * scaleY,
+          w,
+          h
+        );
+        hdCtx.restore();
+
+        // Draw frame overlay
+        if (campaign.frameImage) {
+          const frame = await loadImage(campaign.frameImage);
+          hdCtx.drawImage(frame, 0, 0, HD_SIZE.width, HD_SIZE.height);
+        }
+      } else if (campaign.type === 'document' && campaign.backgroundImage) {
+        const bg = await loadImage(campaign.backgroundImage);
+        hdCtx.drawImage(bg, 0, 0, HD_SIZE.width, HD_SIZE.height);
+      } else if (campaign.frameImage) {
+        const frame = await loadImage(campaign.frameImage);
+        hdCtx.drawImage(frame, 0, 0, HD_SIZE.width, HD_SIZE.height);
+      }
+
+      // Draw text elements in HD
+      textElements.forEach((elem) => {
+        hdCtx.save();
+        const fontSize = elem.fontSize * scaleX;
+        hdCtx.font = `${elem.fontWeight} ${fontSize}px ${elem.fontFamily}`;
+        hdCtx.fillStyle = elem.color;
+        hdCtx.textAlign = 'center';
+        hdCtx.textBaseline = 'middle';
+        
+        const x = elem.x * scaleX;
+        const y = elem.y * scaleY;
+        
+        hdCtx.fillText(elem.value, x, y);
+        hdCtx.restore();
+      });
+
+      // Download
+      const link = document.createElement('a');
+      link.download = `${campaign.title.replace(/\s+/g, '-')}-HD.png`;
+      link.href = hdCanvas.toDataURL('image/png', 1.0);
+      link.click();
+      
+      onDownload();
+      toast.success(`Image HD téléchargée (${HD_SIZE.width}x${HD_SIZE.height}px)`);
+    } catch (error) {
+      console.error('HD export error:', error);
+      toast.error('Erreur lors de l\'export HD');
+    }
   };
 
-  const handleDownloadPDF = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  const handleDownloadPDF = async () => {
+    // Créer un canvas HD pour l'export PDF
+    const hdCanvas = document.createElement('canvas');
+    hdCanvas.width = HD_SIZE.width;
+    hdCanvas.height = HD_SIZE.height;
+    const hdCtx = hdCanvas.getContext('2d');
+    if (!hdCtx) return;
 
-    const pdf = new jsPDF({
-      orientation: 'landscape',
-      unit: 'mm',
-      format: 'a4'
-    });
+    const scaleX = HD_SIZE.width / CANVAS_WIDTH;
+    const scaleY = HD_SIZE.height / CANVAS_HEIGHT;
 
-    const imgData = canvas.toDataURL('image/png');
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = pdf.internal.pageSize.getHeight();
-    
-    // Center the image on the page
-    const canvasAspect = canvas.width / canvas.height;
-    const pageAspect = pdfWidth / pdfHeight;
-    
-    let imgWidth, imgHeight, x, y;
-    
-    if (canvasAspect > pageAspect) {
-      imgWidth = pdfWidth - 20;
-      imgHeight = imgWidth / canvasAspect;
-      x = 10;
-      y = (pdfHeight - imgHeight) / 2;
-    } else {
-      imgHeight = pdfHeight - 20;
-      imgWidth = imgHeight * canvasAspect;
-      x = (pdfWidth - imgWidth) / 2;
-      y = 10;
+    // Helper to load image with CORS
+    const loadImage = (src: string): Promise<HTMLImageElement> => {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+      });
+    };
+
+    try {
+      // Draw background or user photo
+      if (userPhoto) {
+        const img = await loadImage(userPhoto);
+        hdCtx.save();
+        hdCtx.translate(HD_SIZE.width / 2, HD_SIZE.height / 2);
+        hdCtx.rotate((rotation * Math.PI) / 180);
+        hdCtx.scale(zoom, zoom);
+        
+        const scale = Math.max(HD_SIZE.width / img.width, HD_SIZE.height / img.height);
+        const w = img.width * scale;
+        const h = img.height * scale;
+        
+        hdCtx.drawImage(
+          img,
+          -w / 2 + offset.x * scaleX,
+          -h / 2 + offset.y * scaleY,
+          w,
+          h
+        );
+        hdCtx.restore();
+
+        if (campaign.frameImage) {
+          const frame = await loadImage(campaign.frameImage);
+          hdCtx.drawImage(frame, 0, 0, HD_SIZE.width, HD_SIZE.height);
+        }
+      } else if (campaign.type === 'document' && campaign.backgroundImage) {
+        const bg = await loadImage(campaign.backgroundImage);
+        hdCtx.drawImage(bg, 0, 0, HD_SIZE.width, HD_SIZE.height);
+      } else if (campaign.frameImage) {
+        const frame = await loadImage(campaign.frameImage);
+        hdCtx.drawImage(frame, 0, 0, HD_SIZE.width, HD_SIZE.height);
+      }
+
+      // Draw text elements in HD
+      textElements.forEach((elem) => {
+        hdCtx.save();
+        const fontSize = elem.fontSize * scaleX;
+        hdCtx.font = `${elem.fontWeight} ${fontSize}px ${elem.fontFamily}`;
+        hdCtx.fillStyle = elem.color;
+        hdCtx.textAlign = 'center';
+        hdCtx.textBaseline = 'middle';
+        
+        const x = elem.x * scaleX;
+        const y = elem.y * scaleY;
+        
+        hdCtx.fillText(elem.value, x, y);
+        hdCtx.restore();
+      });
+
+      // Create PDF with HD image
+      const isLandscape = HD_SIZE.width > HD_SIZE.height;
+      const pdf = new jsPDF({
+        orientation: isLandscape ? 'landscape' : 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const imgData = hdCanvas.toDataURL('image/png', 1.0);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      // Center the image on the page
+      const canvasAspect = hdCanvas.width / hdCanvas.height;
+      const pageAspect = pdfWidth / pdfHeight;
+      
+      let imgWidth, imgHeight, x, y;
+      
+      if (canvasAspect > pageAspect) {
+        imgWidth = pdfWidth - 20;
+        imgHeight = imgWidth / canvasAspect;
+        x = 10;
+        y = (pdfHeight - imgHeight) / 2;
+      } else {
+        imgHeight = pdfHeight - 20;
+        imgWidth = imgHeight * canvasAspect;
+        x = (pdfWidth - imgWidth) / 2;
+        y = 10;
+      }
+
+      pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
+      pdf.save(`${campaign.title.replace(/\s+/g, '-')}-HD.pdf`);
+      
+      onDownload();
+      toast.success('PDF HD téléchargé (qualité 300 DPI)');
+    } catch (error) {
+      console.error('PDF export error:', error);
+      toast.error('Erreur lors de l\'export PDF');
     }
-
-    pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
-    pdf.save(`${campaign.title.replace(/\s+/g, '-')}.pdf`);
-    
-    onDownload();
-    toast.success('PDF downloaded!');
   };
 
   const updateTextValue = (id: string, value: string) => {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Campaign, TextElement, DocumentFormat, DocumentCategory } from '@/types/campaign';
 import { Button } from '@/components/ui/button';
 import { 
@@ -89,10 +89,14 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
   const [backgroundImage, setBackgroundImage] = useState<string>('');
   const [backgroundFile, setBackgroundFile] = useState<File | null>(null);
   const [showTemplateSelector, setShowTemplateSelector] = useState(true);
+  const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
+  const [isDraggingField, setIsDraggingField] = useState(false);
+  const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0, fieldX: 0, fieldY: 0 });
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
   const { uploadImage } = useStorage();
 
   // Debounced slug check
@@ -331,8 +335,67 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
     setBackgroundImage('');
     setBackgroundFile(null);
     setShowTemplateSelector(true);
+    setSelectedFieldId(null);
+    setIsDraggingField(false);
     onClose();
   };
+
+  // Drag & drop handlers pour les champs texte sur l'aperçu
+  const handlePreviewMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!previewRef.current) return;
+    
+    const rect = previewRef.current.getBoundingClientRect();
+    const dims = getCanvasDimensions(documentFormat);
+    const scaleX = dims.width / rect.width;
+    const scaleY = dims.height / rect.height;
+    
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+    
+    // Trouver si on clique sur un champ
+    const clickedField = textElements.find(elem => {
+      const dx = Math.abs(x - elem.x);
+      const dy = Math.abs(y - elem.y);
+      return dx < 80 && dy < elem.fontSize;
+    });
+    
+    if (clickedField) {
+      e.preventDefault();
+      setSelectedFieldId(clickedField.id);
+      setIsDraggingField(true);
+      setDragStartPos({ 
+        x: e.clientX, 
+        y: e.clientY, 
+        fieldX: clickedField.x, 
+        fieldY: clickedField.y 
+      });
+    } else {
+      setSelectedFieldId(null);
+    }
+  }, [textElements, documentFormat]);
+
+  const handlePreviewMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDraggingField || !selectedFieldId || !previewRef.current) return;
+    
+    const rect = previewRef.current.getBoundingClientRect();
+    const dims = getCanvasDimensions(documentFormat);
+    const scaleX = dims.width / rect.width;
+    const scaleY = dims.height / rect.height;
+    
+    const deltaX = (e.clientX - dragStartPos.x) * scaleX;
+    const deltaY = (e.clientY - dragStartPos.y) * scaleY;
+    
+    const newX = Math.max(50, Math.min(dims.width - 50, dragStartPos.fieldX + deltaX));
+    const newY = Math.max(30, Math.min(dims.height - 30, dragStartPos.fieldY + deltaY));
+    
+    setTextElements(prev => prev.map(elem => 
+      elem.id === selectedFieldId ? { ...elem, x: newX, y: newY } : elem
+    ));
+  }, [isDraggingField, selectedFieldId, dragStartPos, documentFormat]);
+
+  const handlePreviewMouseUp = useCallback(() => {
+    setIsDraggingField(false);
+  }, []);
 
   // Camera functions for filter preview
   const startCamera = async () => {
@@ -578,46 +641,86 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
                   onChange={setTextElements}
                   canvasWidth={getCanvasDimensions(documentFormat).width}
                   canvasHeight={getCanvasDimensions(documentFormat).height}
+                  selectedFieldId={selectedFieldId}
+                  onSelectField={setSelectedFieldId}
                 />
 
-                {/* Document Preview */}
+                {/* Document Preview - avec Drag & Drop */}
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Aperçu</label>
+                  <label className="text-sm font-medium mb-2 block">
+                    Aperçu 
+                    <span className="text-xs text-muted-foreground ml-2">(glissez les textes pour les positionner)</span>
+                  </label>
                   <div 
-                    className="relative bg-muted/30 rounded-xl overflow-hidden mx-auto border"
+                    ref={previewRef}
+                    className={cn(
+                      "relative bg-muted/30 rounded-xl overflow-hidden mx-auto border-2 transition-all select-none",
+                      isDraggingField ? "cursor-grabbing border-primary" : "cursor-grab border-border"
+                    )}
                     style={{ 
                       width: '100%',
                       maxWidth: 400,
                       aspectRatio: `${getCanvasDimensions(documentFormat).width} / ${getCanvasDimensions(documentFormat).height}`
                     }}
+                    onMouseDown={handlePreviewMouseDown}
+                    onMouseMove={handlePreviewMouseMove}
+                    onMouseUp={handlePreviewMouseUp}
+                    onMouseLeave={handlePreviewMouseUp}
                   >
                     {backgroundImage && (
                       <img 
                         src={backgroundImage} 
                         alt="Background" 
-                        className="absolute inset-0 w-full h-full object-cover"
+                        className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                        draggable={false}
                       />
                     )}
                     <svg 
                       viewBox={`0 0 ${getCanvasDimensions(documentFormat).width} ${getCanvasDimensions(documentFormat).height}`}
-                      className="absolute inset-0 w-full h-full"
+                      className="absolute inset-0 w-full h-full pointer-events-none"
                     >
                       {textElements.map(elem => (
-                        <text
-                          key={elem.id}
-                          x={elem.x}
-                          y={elem.y}
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                          fontSize={elem.fontSize}
-                          fontFamily={elem.fontFamily}
-                          fontWeight={elem.fontWeight}
-                          fill={elem.color}
-                        >
-                          {elem.value}
-                        </text>
+                        <g key={elem.id}>
+                          {/* Indicateur de sélection */}
+                          {selectedFieldId === elem.id && (
+                            <rect
+                              x={elem.x - 60}
+                              y={elem.y - elem.fontSize / 2 - 5}
+                              width={120}
+                              height={elem.fontSize + 10}
+                              fill="none"
+                              stroke="hsl(var(--primary))"
+                              strokeWidth="2"
+                              strokeDasharray="5,5"
+                              rx="4"
+                            />
+                          )}
+                          <text
+                            x={elem.x}
+                            y={elem.y}
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                            fontSize={elem.fontSize}
+                            fontFamily={elem.fontFamily}
+                            fontWeight={elem.fontWeight}
+                            fill={elem.color}
+                            className={cn(
+                              "transition-opacity",
+                              selectedFieldId === elem.id ? "opacity-100" : "opacity-80"
+                            )}
+                          >
+                            {elem.value}
+                          </text>
+                        </g>
                       ))}
                     </svg>
+                    
+                    {/* Hint si pas de champs */}
+                    {textElements.length === 0 && (
+                      <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+                        <p className="text-sm">Ajoutez des textes</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </>
