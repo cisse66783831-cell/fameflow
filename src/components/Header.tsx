@@ -57,16 +57,6 @@ export function Header() {
             Événements
           </Button>
 
-          {/* Video Filters - accessible to everyone */}
-          <Button 
-            variant={isActive('/filters') ? 'secondary' : 'ghost'} 
-            size="sm"
-            onClick={() => navigate('/filters')}
-            className="hidden sm:flex"
-          >
-            <Video className="w-4 h-4 mr-1" />
-            Filtres
-          </Button>
 
           {user ? (
             <>
@@ -116,10 +106,6 @@ export function Header() {
                   <DropdownMenuItem onClick={() => navigate('/events')}>
                     <Calendar className="w-4 h-4 mr-2" />
                     Événements
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate('/filters')}>
-                    <Video className="w-4 h-4 mr-2" />
-                    Filtres Vidéo
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate('/wallet')}>

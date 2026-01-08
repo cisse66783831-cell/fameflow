@@ -16,7 +16,7 @@ import WalletPage from "./pages/Wallet";
 import ScannerPage from "./pages/Scanner";
 import TicketPurchasePage from "./pages/TicketPurchase";
 import SuperAdminPage from "./pages/SuperAdmin";
-import VideoFiltersPage from "./pages/VideoFilters";
+import VideoFilterPublicPage from "./pages/VideoFilterPublic";
 import CampaignBySlugPage from "./pages/CampaignBySlug";
 import NotFound from "./pages/NotFound";
 import ServerError from "./pages/ServerError";
@@ -50,7 +50,7 @@ const App = () => (
                 <Route path="/scanner" element={<ScannerPage />} />
                 <Route path="/event/:eventId/ticket" element={<TicketPurchasePage />} />
                 <Route path="/super-admin" element={<SuperAdminPage />} />
-                <Route path="/filters" element={<VideoFiltersPage />} />
+                <Route path="/v/:slug" element={<VideoFilterPublicPage />} />
                 <Route path="/c/:id" element={<CampaignPage />} />
                 <Route path="/:slug" element={<CampaignBySlugPage />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
