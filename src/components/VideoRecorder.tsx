@@ -98,22 +98,62 @@ export const VideoRecorder = ({
 
   // Start preview loop when upload video is ready
   useEffect(() => {
-    if (uploadVideoUrl && uploadedVideoRef.current && mode === 'upload') {
+    if (uploadVideoUrl && uploadedVideoRef.current && mode === 'upload' && canvasRef.current) {
       const video = uploadedVideoRef.current;
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      
       video.src = uploadVideoUrl;
       video.load();
       
-      video.onloadeddata = () => {
-        // Wait for filter image to be ready
-        const waitForFilter = () => {
-          if (filterImgRef.current && filterImgRef.current.complete) {
-            drawUploadFrame();
+      video.onloadedmetadata = () => {
+        // Wait for filter image to be ready, then draw first frame
+        const drawFirstFrame = () => {
+          if (!ctx) return;
+          
+          // Seek to first frame
+          video.currentTime = 0;
+        };
+        
+        video.onseeked = () => {
+          if (!ctx) return;
+          
+          // Calculate scaling to fit video in canvas while maintaining aspect ratio
+          const videoAspect = video.videoWidth / video.videoHeight;
+          const canvasAspect = canvas.width / canvas.height;
+          
+          let drawWidth, drawHeight, offsetX, offsetY;
+          
+          if (videoAspect > canvasAspect) {
+            drawWidth = canvas.width;
+            drawHeight = canvas.width / videoAspect;
+            offsetX = 0;
+            offsetY = (canvas.height - drawHeight) / 2;
           } else {
-            // Retry after a short delay
-            setTimeout(waitForFilter, 50);
+            drawHeight = canvas.height;
+            drawWidth = canvas.height * videoAspect;
+            offsetX = (canvas.width - drawWidth) / 2;
+            offsetY = 0;
+          }
+          
+          // Clear canvas with black
+          ctx.fillStyle = '#000';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          
+          // Draw video frame
+          ctx.drawImage(video, offsetX, offsetY, drawWidth, drawHeight);
+          
+          // Draw filter overlay if ready
+          if (filterImgRef.current && filterImgRef.current.complete) {
+            ctx.drawImage(filterImgRef.current, 0, 0, canvas.width, canvas.height);
+          } else if (filterImgRef.current) {
+            filterImgRef.current.onload = () => {
+              ctx.drawImage(filterImgRef.current!, 0, 0, canvas.width, canvas.height);
+            };
           }
         };
-        waitForFilter();
+        
+        drawFirstFrame();
       };
     }
   }, [uploadVideoUrl, mode, currentFrame]);
