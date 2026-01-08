@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Camera, Video, Square, Download, Loader2, Upload, RotateCcw, Mic, MicOff } from 'lucide-react';
+import { Camera, Video, Square, Download, Loader2, Upload, RotateCcw, Mic, MicOff, Play, Pause } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface VideoRecorderProps {
@@ -36,6 +36,8 @@ export const VideoRecorder = ({
   const [countdown, setCountdown] = useState<number | null>(null);
   const [isPortrait, setIsPortrait] = useState(true);
   const [audioEnabled, setAudioEnabled] = useState(true);
+  const [isUploadPlaying, setIsUploadPlaying] = useState(false);
+  const [uploadVideoUrl, setUploadVideoUrl] = useState<string | null>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -45,6 +47,8 @@ export const VideoRecorder = ({
   const animationRef = useRef<number | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const filterImgRef = useRef<HTMLImageElement | null>(null);
+  const uploadedVideoRef = useRef<HTMLVideoElement>(null);
+  const uploadAnimationRef = useRef<number | null>(null);
 
   // Determine which frame to use based on orientation
   const currentFrame = isPortrait ? frameImagePortrait : frameImageLandscape;
@@ -73,10 +77,38 @@ export const VideoRecorder = ({
   useEffect(() => {
     return () => {
       stopCamera();
+      stopUploadPreview();
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
       if (timerRef.current) clearInterval(timerRef.current);
+      if (uploadVideoUrl) URL.revokeObjectURL(uploadVideoUrl);
     };
   }, []);
+
+  // Handle uploaded video setup
+  useEffect(() => {
+    if (uploadedVideo && mode === 'upload') {
+      const url = URL.createObjectURL(uploadedVideo);
+      setUploadVideoUrl(url);
+      
+      return () => {
+        URL.revokeObjectURL(url);
+      };
+    }
+  }, [uploadedVideo, mode]);
+
+  // Start preview loop when upload video is ready
+  useEffect(() => {
+    if (uploadVideoUrl && uploadedVideoRef.current && mode === 'upload') {
+      const video = uploadedVideoRef.current;
+      video.src = uploadVideoUrl;
+      video.load();
+      
+      video.onloadeddata = () => {
+        // Draw first frame
+        drawUploadFrame();
+      };
+    }
+  }, [uploadVideoUrl, mode]);
 
   const startCamera = async () => {
     try {
@@ -139,6 +171,95 @@ export const VideoRecorder = ({
     };
     
     render();
+  };
+
+  const drawUploadFrame = () => {
+    if (!uploadedVideoRef.current || !canvasRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    const video = uploadedVideoRef.current;
+    
+    // Calculate scaling to fit video in canvas while maintaining aspect ratio
+    const videoAspect = video.videoWidth / video.videoHeight;
+    const canvasAspect = canvas.width / canvas.height;
+    
+    let drawWidth, drawHeight, offsetX, offsetY;
+    
+    if (videoAspect > canvasAspect) {
+      drawWidth = canvas.width;
+      drawHeight = canvas.width / videoAspect;
+      offsetX = 0;
+      offsetY = (canvas.height - drawHeight) / 2;
+    } else {
+      drawHeight = canvas.height;
+      drawWidth = canvas.height * videoAspect;
+      offsetX = (canvas.width - drawWidth) / 2;
+      offsetY = 0;
+    }
+    
+    // Clear canvas
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw video frame
+    ctx.drawImage(video, offsetX, offsetY, drawWidth, drawHeight);
+    
+    // Draw filter overlay
+    if (filterImgRef.current && filterImgRef.current.complete) {
+      ctx.drawImage(filterImgRef.current, 0, 0, canvas.width, canvas.height);
+    }
+  };
+
+  const startUploadPreviewLoop = () => {
+    const render = () => {
+      if (!uploadedVideoRef.current) return;
+      
+      const video = uploadedVideoRef.current;
+      
+      if (video.paused || video.ended) {
+        if (video.ended) {
+          setIsUploadPlaying(false);
+        }
+        return;
+      }
+      
+      drawUploadFrame();
+      uploadAnimationRef.current = requestAnimationFrame(render);
+    };
+    
+    render();
+  };
+
+  const stopUploadPreview = () => {
+    if (uploadAnimationRef.current) {
+      cancelAnimationFrame(uploadAnimationRef.current);
+      uploadAnimationRef.current = null;
+    }
+    if (uploadedVideoRef.current) {
+      uploadedVideoRef.current.pause();
+    }
+    setIsUploadPlaying(false);
+  };
+
+  const toggleUploadPlayback = () => {
+    if (!uploadedVideoRef.current) return;
+    
+    const video = uploadedVideoRef.current;
+    
+    if (video.paused || video.ended) {
+      if (video.ended) {
+        video.currentTime = 0;
+      }
+      video.play();
+      setIsUploadPlaying(true);
+      startUploadPreviewLoop();
+    } else {
+      video.pause();
+      setIsUploadPlaying(false);
+    }
   };
 
   const startCountdown = () => {
@@ -333,7 +454,29 @@ export const VideoRecorder = ({
           return;
         }
         
-        ctx.drawImage(video, 0, 0, width, height);
+        // Calculate scaling to fit video in canvas while maintaining aspect ratio
+        const videoAspect = video.videoWidth / video.videoHeight;
+        const canvasAspect = width / height;
+        
+        let drawWidth, drawHeight, offsetX, offsetY;
+        
+        if (videoAspect > canvasAspect) {
+          drawWidth = width;
+          drawHeight = width / videoAspect;
+          offsetX = 0;
+          offsetY = (height - drawHeight) / 2;
+        } else {
+          drawHeight = height;
+          drawWidth = height * videoAspect;
+          offsetX = (width - drawWidth) / 2;
+          offsetY = 0;
+        }
+        
+        // Clear canvas
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, width, height);
+        
+        ctx.drawImage(video, offsetX, offsetY, drawWidth, drawHeight);
         ctx.drawImage(filterImg, 0, 0, width, height);
         
         requestAnimationFrame(renderFrame);
@@ -369,10 +512,13 @@ export const VideoRecorder = ({
   };
 
   const reset = () => {
+    stopUploadPreview();
     setRecordedBlob(null);
     setUploadedVideo(null);
+    setUploadVideoUrl(null);
     setMode('idle');
     setRecordingTime(0);
+    setIsUploadPlaying(false);
   };
 
   const formatTime = (seconds: number) => {
@@ -387,6 +533,15 @@ export const VideoRecorder = ({
 
   return (
     <div className="space-y-4">
+      {/* Hidden video element for uploaded video */}
+      <video 
+        ref={uploadedVideoRef}
+        muted
+        playsInline
+        className="hidden"
+        onEnded={() => setIsUploadPlaying(false)}
+      />
+      
       {/* Video Preview Area */}
       <div 
         className={cn(
@@ -425,6 +580,22 @@ export const VideoRecorder = ({
             <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
             <span className="text-sm font-medium">{formatTime(recordingTime)}</span>
           </div>
+        )}
+        
+        {/* Play/Pause overlay for upload mode */}
+        {mode === 'upload' && uploadedVideo && !isProcessing && (
+          <button
+            onClick={toggleUploadPlayback}
+            className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 transition-colors group"
+          >
+            <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center group-hover:scale-110 transition-transform">
+              {isUploadPlaying ? (
+                <Pause className="w-8 h-8 text-foreground" />
+              ) : (
+                <Play className="w-8 h-8 text-foreground ml-1" />
+              )}
+            </div>
+          </button>
         )}
         
         {/* Idle state */}
@@ -552,14 +723,29 @@ export const VideoRecorder = ({
         {/* Upload Mode Controls */}
         {mode === 'upload' && uploadedVideo && (
           <div className="flex flex-col gap-3 items-center">
-            <p className="text-sm text-muted-foreground">
-              Vidéo sélectionnée: {uploadedVideo.name}
+            <p className="text-sm text-muted-foreground text-center">
+              {uploadedVideo.name}
+              <br />
+              <span className="text-xs">Cliquez sur la vidéo pour lecture/pause</span>
             </p>
             <div className="flex gap-3">
-              <Button variant="outline" onClick={reset}>
-                <RotateCcw className="w-4 h-4 mr-2" />
-                Changer
-              </Button>
+              <label>
+                <Button variant="outline" asChild>
+                  <span>
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    Changer
+                  </span>
+                </Button>
+                <input
+                  type="file"
+                  accept="video/*"
+                  onChange={(e) => {
+                    stopUploadPreview();
+                    handleUpload(e);
+                  }}
+                  className="hidden"
+                />
+              </label>
               <Button 
                 onClick={processUploadedVideo}
                 disabled={isProcessing}
@@ -569,7 +755,7 @@ export const VideoRecorder = ({
                 ) : (
                   <Download className="w-4 h-4 mr-2" />
                 )}
-                Exporter avec filtre
+                Télécharger avec filtre
               </Button>
             </div>
           </div>
