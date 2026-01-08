@@ -836,7 +836,7 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
                 Lien personnalisé
               </label>
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground whitespace-nowrap">jyserai.site/</span>
+                <span className="text-sm text-muted-foreground whitespace-nowrap">{type === 'video_filter' ? 'jyserai.site/v/' : 'jyserai.site/'}</span>
                 <div className="relative flex-1">
                   <input
                     type="text"
