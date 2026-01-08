@@ -104,11 +104,19 @@ export const VideoRecorder = ({
       video.load();
       
       video.onloadeddata = () => {
-        // Draw first frame
-        drawUploadFrame();
+        // Wait for filter image to be ready
+        const waitForFilter = () => {
+          if (filterImgRef.current && filterImgRef.current.complete) {
+            drawUploadFrame();
+          } else {
+            // Retry after a short delay
+            setTimeout(waitForFilter, 50);
+          }
+        };
+        waitForFilter();
       };
     }
-  }, [uploadVideoUrl, mode]);
+  }, [uploadVideoUrl, mode, currentFrame]);
 
   const startCamera = async () => {
     try {
@@ -599,7 +607,7 @@ export const VideoRecorder = ({
         )}
         
         {/* Idle state */}
-        {mode === 'idle' && (
+        {mode === 'idle' && !recordedBlob && !uploadedVideo && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
             {currentFrame && (
               <img 
