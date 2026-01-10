@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Camera, Video, Square, Download, Loader2, Upload, RotateCcw, Mic, MicOff, Play, Pause } from 'lucide-react';
+import { Camera, Video, Square, Download, Loader2, Upload, RotateCcw, Mic, MicOff, Play, Pause, Volume2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface VideoRecorderProps {
@@ -38,6 +38,7 @@ export const VideoRecorder = ({
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [isUploadPlaying, setIsUploadPlaying] = useState(false);
   const [uploadVideoUrl, setUploadVideoUrl] = useState<string | null>(null);
+  const [audioLevel, setAudioLevel] = useState(0);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -49,6 +50,9 @@ export const VideoRecorder = ({
   const filterImgRef = useRef<HTMLImageElement | null>(null);
   const uploadedVideoRef = useRef<HTMLVideoElement>(null);
   const uploadAnimationRef = useRef<number | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const audioAnimationRef = useRef<number | null>(null);
 
   // Determine which frame to use based on orientation
   const currentFrame = isPortrait ? frameImagePortrait : frameImageLandscape;
@@ -78,6 +82,7 @@ export const VideoRecorder = ({
     return () => {
       stopCamera();
       stopUploadPreview();
+      stopAudioAnalysis();
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
       if (timerRef.current) clearInterval(timerRef.current);
       if (uploadVideoUrl) URL.revokeObjectURL(uploadVideoUrl);
@@ -311,7 +316,54 @@ export const VideoRecorder = ({
     if (uploadedVideoRef.current) {
       uploadedVideoRef.current.pause();
     }
+    stopAudioAnalysis();
     setIsUploadPlaying(false);
+  };
+
+  // Audio analysis functions
+  const startAudioAnalysis = (videoElement: HTMLVideoElement) => {
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext();
+      }
+      
+      const audioContext = audioContextRef.current;
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.8;
+      
+      const source = audioContext.createMediaElementSource(videoElement);
+      source.connect(analyser);
+      analyser.connect(audioContext.destination);
+      
+      analyserRef.current = analyser;
+      
+      const updateAudioLevel = () => {
+        if (!analyserRef.current) return;
+        
+        const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+        analyserRef.current.getByteFrequencyData(dataArray);
+        
+        // Calculate average volume level
+        const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
+        const normalizedLevel = Math.min(average / 128, 1); // Normalize to 0-1
+        
+        setAudioLevel(normalizedLevel);
+        audioAnimationRef.current = requestAnimationFrame(updateAudioLevel);
+      };
+      
+      updateAudioLevel();
+    } catch (error) {
+      console.error('Error starting audio analysis:', error);
+    }
+  };
+
+  const stopAudioAnalysis = () => {
+    if (audioAnimationRef.current) {
+      cancelAnimationFrame(audioAnimationRef.current);
+      audioAnimationRef.current = null;
+    }
+    setAudioLevel(0);
   };
 
   const toggleUploadPlayback = () => {
@@ -323,11 +375,37 @@ export const VideoRecorder = ({
       if (video.ended) {
         video.currentTime = 0;
       }
+      
+      // Start audio analysis if not already started
+      if (!analyserRef.current) {
+        startAudioAnalysis(video);
+      } else if (audioContextRef.current?.state === 'suspended') {
+        audioContextRef.current.resume();
+      }
+      
       video.play();
       setIsUploadPlaying(true);
       startUploadPreviewLoop();
+      
+      // Restart audio level animation
+      if (analyserRef.current) {
+        const updateAudioLevel = () => {
+          if (!analyserRef.current || !isUploadPlaying) return;
+          
+          const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+          analyserRef.current.getByteFrequencyData(dataArray);
+          
+          const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
+          const normalizedLevel = Math.min(average / 128, 1);
+          
+          setAudioLevel(normalizedLevel);
+          audioAnimationRef.current = requestAnimationFrame(updateAudioLevel);
+        };
+        updateAudioLevel();
+      }
     } else {
       video.pause();
+      stopAudioAnalysis();
       setIsUploadPlaying(false);
     }
   };
@@ -729,6 +807,27 @@ export const VideoRecorder = ({
               )}
             </div>
           </button>
+        )}
+        
+        {/* Audio Volume Indicator */}
+        {mode === 'upload' && isUploadPlaying && (
+          <div className="absolute bottom-4 right-4 flex items-center gap-2 bg-black/60 backdrop-blur-sm px-3 py-2 rounded-full">
+            <Volume2 className="w-4 h-4 text-white" />
+            <div className="flex items-end gap-0.5 h-4">
+              {[0.2, 0.4, 0.6, 0.8, 1].map((threshold, index) => (
+                <div
+                  key={index}
+                  className={cn(
+                    "w-1 rounded-full transition-all duration-75",
+                    audioLevel >= threshold ? "bg-primary" : "bg-white/30"
+                  )}
+                  style={{
+                    height: `${(index + 1) * 20}%`,
+                  }}
+                />
+              ))}
+            </div>
+          </div>
         )}
         
         {/* Idle state */}
