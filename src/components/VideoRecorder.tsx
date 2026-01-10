@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { Camera, Video, Square, Download, Loader2, Upload, RotateCcw, Mic, MicOff, Play, Pause, Volume2, Volume1, VolumeX } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
+import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -44,6 +45,8 @@ export const VideoRecorder = ({
   const [uploadVideoUrl, setUploadVideoUrl] = useState<string | null>(null);
   const [audioLevel, setAudioLevel] = useState(0);
   const [volume, setVolume] = useState(1); // Volume at 100% by default
+  const [uploadProgress, setUploadProgress] = useState(0); // 0-100 for import
+  const [exportProgress, setExportProgress] = useState(0); // 0-100 for export
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -120,11 +123,23 @@ export const VideoRecorder = ({
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
       
+      setUploadProgress(10); // Start progress
+      
       video.src = uploadVideoUrl;
       video.load();
       video.pause(); // Ensure video stays paused after load
       
+      // Track buffering progress
+      video.onprogress = () => {
+        if (video.buffered.length > 0 && video.duration > 0) {
+          const bufferedEnd = video.buffered.end(video.buffered.length - 1);
+          const progress = 10 + Math.round((bufferedEnd / video.duration) * 70);
+          setUploadProgress(Math.min(progress, 80));
+        }
+      };
+      
       video.onloadedmetadata = () => {
+        setUploadProgress(85);
         video.pause(); // Double security - pause after metadata loaded
         
         // Wait for filter image to be ready, then draw first frame
@@ -174,6 +189,11 @@ export const VideoRecorder = ({
         };
         
         drawFirstFrame();
+      };
+      
+      video.oncanplaythrough = () => {
+        setUploadProgress(100);
+        setTimeout(() => setUploadProgress(0), 500);
       };
     }
   }, [uploadVideoUrl, mode, currentFrame]);
@@ -555,6 +575,7 @@ export const VideoRecorder = ({
     if (!uploadedVideo) return;
     
     setIsProcessing(true);
+    setExportProgress(0);
     toast.info('Traitement de la vidéo en cours...');
     
     let audioContext: AudioContext | null = null;
@@ -679,8 +700,18 @@ export const VideoRecorder = ({
       // Start video (muted, audio is from audioBufferSource)
       await video.play();
       
+      // Track export progress
+      const progressInterval = setInterval(() => {
+        if (video.duration > 0) {
+          const progress = Math.round((video.currentTime / video.duration) * 100);
+          setExportProgress(progress);
+        }
+      }, 100);
+      
       const renderFrame = () => {
         if (video.ended || video.paused) {
+          clearInterval(progressInterval);
+          setExportProgress(100);
           mediaRecorder.stop();
           return;
         }
@@ -721,7 +752,10 @@ export const VideoRecorder = ({
       renderFrame();
       
       await new Promise<void>((resolve) => {
-        video.onended = () => resolve();
+        video.onended = () => {
+          clearInterval(progressInterval);
+          resolve();
+        };
       });
       
       const exportedBlob = await exportPromise;
@@ -771,6 +805,7 @@ export const VideoRecorder = ({
         URL.revokeObjectURL(videoSrcUrl);
       }
       setIsProcessing(false);
+      setExportProgress(0);
     }
   };
 
@@ -846,7 +881,7 @@ export const VideoRecorder = ({
         )}
         
         {/* Play/Pause overlay for upload mode */}
-        {mode === 'upload' && uploadedVideo && !isProcessing && (
+        {mode === 'upload' && uploadedVideo && !isProcessing && uploadProgress === 0 && (
           <button
             onClick={toggleUploadPlayback}
             className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 transition-colors group"
@@ -859,6 +894,32 @@ export const VideoRecorder = ({
               )}
             </div>
           </button>
+        )}
+        
+        {/* Upload progress overlay */}
+        {mode === 'upload' && uploadProgress > 0 && uploadProgress < 100 && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70">
+            <Loader2 className="w-10 h-10 text-primary animate-spin mb-4" />
+            <div className="w-3/4 max-w-xs">
+              <Progress value={uploadProgress} className="h-3 mb-2" />
+              <p className="text-white text-center text-sm">
+                Chargement... {uploadProgress}%
+              </p>
+            </div>
+          </div>
+        )}
+        
+        {/* Export progress overlay */}
+        {isProcessing && exportProgress > 0 && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70">
+            <Loader2 className="w-10 h-10 text-primary animate-spin mb-4" />
+            <div className="w-3/4 max-w-xs">
+              <Progress value={exportProgress} className="h-3 mb-2" />
+              <p className="text-white text-center text-sm">
+                Export en cours... {exportProgress}%
+              </p>
+            </div>
+          </div>
         )}
         
         {/* Volume Control with Audio Level Indicator */}
@@ -1053,13 +1114,19 @@ export const VideoRecorder = ({
               <Button 
                 onClick={processUploadedVideo}
                 disabled={isProcessing}
+                className="min-w-[180px]"
               >
                 {isProcessing ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {exportProgress > 0 ? `${exportProgress}%` : 'Préparation...'}
+                  </>
                 ) : (
-                  <Download className="w-4 h-4 mr-2" />
+                  <>
+                    <Download className="w-4 h-4 mr-2" />
+                    Télécharger avec filtre
+                  </>
                 )}
-                Télécharger avec filtre
               </Button>
             </div>
           </div>
