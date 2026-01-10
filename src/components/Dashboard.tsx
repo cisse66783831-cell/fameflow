@@ -10,11 +10,12 @@ import { PhotoEditor } from './PhotoEditor';
 import { AnalyticsChart } from './AnalyticsChart';
 import { DownloadAnalytics } from './DownloadAnalytics';
 import { BatchGenerator } from './BatchGenerator';
+import { CreateEventModal } from './CreateEventModal';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Plus, Eye, Download, Layers, Beaker, 
-  ArrowLeft, Zap, Sparkles, LogOut, BarChart3, LayoutGrid, Users, Activity
+  ArrowLeft, Zap, Sparkles, LogOut, BarChart3, LayoutGrid, Users, Activity, Calendar
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -36,6 +37,7 @@ export const Dashboard = () => {
   
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showEventModal, setShowEventModal] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
 
@@ -142,6 +144,11 @@ export const Dashboard = () => {
             <span className="text-sm text-muted-foreground hidden sm:block">
               {user?.email}
             </span>
+            <Button variant="outline" onClick={() => setShowEventModal(true)}>
+              <Calendar className="w-4 h-4 mr-2" />
+              <span className="hidden sm:inline">Créer un événement</span>
+              <span className="sm:hidden">Event</span>
+            </Button>
             <Button variant="gradient" onClick={() => setShowCreateModal(true)}>
               <Plus className="w-4 h-4 mr-2" />
               <span className="hidden sm:inline">New Campaign</span>
@@ -283,6 +290,16 @@ export const Dashboard = () => {
           setEditingCampaign(null);
         }}
         onUpdate={updateCampaign}
+      />
+
+      <CreateEventModal
+        isOpen={showEventModal}
+        onClose={() => setShowEventModal(false)}
+        onSuccess={() => {
+          setShowEventModal(false);
+          toast.success('Événement créé avec succès !');
+          navigate('/admin/events');
+        }}
       />
     </div>
   );
