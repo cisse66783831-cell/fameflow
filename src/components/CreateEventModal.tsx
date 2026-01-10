@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Event } from '@/types/event';
 import { QRPositionEditor } from '@/components/QRPositionEditor';
+import { ImageUploader } from '@/components/ImageUploader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -295,51 +296,29 @@ export function CreateEventModal({ isOpen, onClose, event, onSuccess }: CreateEv
             </div>
           </TabsContent>
 
-          {/* Design Tab */}
-          <TabsContent value="design" className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="cover_image">Image de couverture (URL)</Label>
-              <Input
-                id="cover_image"
-                type="url"
-                value={formData.cover_image}
-                onChange={(e) => setFormData({ ...formData, cover_image: e.target.value })}
-                placeholder="https://..."
-              />
-              {formData.cover_image && (
-                <div className="aspect-video rounded-lg overflow-hidden bg-muted mt-2">
-                  <img 
-                    src={formData.cover_image} 
-                    alt="Cover preview"
-                    className="w-full h-full object-cover"
-                    onError={(e) => e.currentTarget.style.display = 'none'}
-                  />
-                </div>
-              )}
-            </div>
+          <TabsContent value="design" className="space-y-6 mt-4">
+            <ImageUploader
+              value={formData.cover_image}
+              onChange={(url) => setFormData({ ...formData, cover_image: url })}
+              bucket="event-images"
+              folder="covers"
+              label="Image de couverture"
+              aspectRatio="video"
+            />
 
             <div className="space-y-2">
-              <Label htmlFor="frame_image">Design du ticket (URL) *</Label>
+              <ImageUploader
+                value={formData.frame_image}
+                onChange={(url) => setFormData({ ...formData, frame_image: url })}
+                bucket="event-images"
+                folder="tickets"
+                label="Design du ticket *"
+                aspectRatio="portrait"
+                className="max-w-xs"
+              />
               <p className="text-xs text-muted-foreground">
                 L'image de fond sur laquelle le QR code sera placé
               </p>
-              <Input
-                id="frame_image"
-                type="url"
-                value={formData.frame_image}
-                onChange={(e) => setFormData({ ...formData, frame_image: e.target.value })}
-                placeholder="https://..."
-              />
-              {formData.frame_image && (
-                <div className="aspect-[3/4] max-w-xs rounded-lg overflow-hidden bg-muted mt-2">
-                  <img 
-                    src={formData.frame_image} 
-                    alt="Frame preview"
-                    className="w-full h-full object-cover"
-                    onError={(e) => e.currentTarget.style.display = 'none'}
-                  />
-                </div>
-              )}
             </div>
           </TabsContent>
 
