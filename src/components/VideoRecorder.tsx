@@ -459,49 +459,96 @@ export const VideoRecorder = ({
   };
 
   const processUploadedVideo = async () => {
-    if (!uploadedVideo || !currentFrame) return;
+    if (!uploadedVideo) return;
     
     setIsProcessing(true);
     toast.info('Traitement de la vidéo en cours...');
     
+    let audioContext: AudioContext | null = null;
+    let videoSrcUrl: string | null = null;
+    
     try {
-      // Create video element
+      // Create video element - NOT muted to capture audio
       const video = document.createElement('video');
-      video.src = URL.createObjectURL(uploadedVideo);
-      video.muted = true;
+      videoSrcUrl = URL.createObjectURL(uploadedVideo);
+      video.src = videoSrcUrl;
+      video.crossOrigin = 'anonymous';
+      video.playsInline = true;
       
-      await new Promise<void>((resolve) => {
+      await new Promise<void>((resolve, reject) => {
         video.onloadedmetadata = () => resolve();
+        video.onerror = () => reject(new Error('Failed to load video'));
       });
       
-      const { width, height } = QUALITY_CONFIG[quality];
+      // Detect if source video is portrait or landscape
+      const isVideoPortrait = video.videoHeight > video.videoWidth;
       
-      // Create canvas
+      // Use correct dimensions based on VIDEO orientation (not screen)
+      const { width: baseWidth, height: baseHeight, bitrate } = QUALITY_CONFIG[quality];
+      const canvasWidth = isVideoPortrait ? baseHeight : baseWidth;
+      const canvasHeight = isVideoPortrait ? baseWidth : baseHeight;
+      
+      // Use the correct filter based on video orientation
+      const frameToUse = isVideoPortrait ? frameImagePortrait : frameImageLandscape;
+      
+      // Create canvas with correct dimensions
       const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
       const ctx = canvas.getContext('2d')!;
       
-      // Load filter
-      const filterImg = new Image();
-      filterImg.crossOrigin = 'anonymous';
-      await new Promise<void>((resolve, reject) => {
-        filterImg.onload = () => resolve();
-        filterImg.onerror = reject;
-        filterImg.src = currentFrame;
-      });
+      // Load the correct filter
+      let filterImg: HTMLImageElement | null = null;
+      if (frameToUse) {
+        filterImg = new Image();
+        filterImg.crossOrigin = 'anonymous';
+        await new Promise<void>((resolve, reject) => {
+          filterImg!.onload = () => resolve();
+          filterImg!.onerror = () => {
+            console.warn('Failed to load filter, continuing without it');
+            filterImg = null;
+            resolve();
+          };
+          filterImg!.src = frameToUse;
+        });
+      }
       
-      // Setup recording
+      // Setup canvas stream for video
       const canvasStream = canvas.captureStream(30);
       
-      let mimeType = 'video/webm;codecs=vp9';
+      // Extract audio from source video and add to stream
+      try {
+        audioContext = new AudioContext();
+        const audioSource = audioContext.createMediaElementSource(video);
+        const audioDestination = audioContext.createMediaStreamDestination();
+        audioSource.connect(audioDestination);
+        // Also connect to speakers so processing works (some browsers require this)
+        audioSource.connect(audioContext.destination);
+        
+        // Add audio tracks to canvas stream
+        audioDestination.stream.getAudioTracks().forEach(track => {
+          canvasStream.addTrack(track);
+        });
+      } catch (audioError) {
+        console.warn('Could not extract audio, continuing without:', audioError);
+      }
+      
+      // Check for supported mime types with audio codec
+      let mimeType = 'video/webm;codecs=vp9,opus';
       if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'video/webm;codecs=vp8';
+        mimeType = 'video/webm;codecs=vp8,opus';
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+          mimeType = 'video/webm;codecs=vp9';
+          if (!MediaRecorder.isTypeSupported(mimeType)) {
+            mimeType = 'video/webm';
+          }
+        }
       }
       
       const mediaRecorder = new MediaRecorder(canvasStream, { 
         mimeType,
-        videoBitsPerSecond: QUALITY_CONFIG[quality].bitrate
+        videoBitsPerSecond: bitrate,
+        audioBitsPerSecond: 128000
       });
       
       const chunks: Blob[] = [];
@@ -515,8 +562,12 @@ export const VideoRecorder = ({
         };
       });
       
-      mediaRecorder.start();
-      video.play();
+      mediaRecorder.start(100);
+      
+      // Need to unmute for audio extraction to work
+      video.muted = false;
+      video.volume = 0.01; // Very low volume to avoid echo
+      await video.play();
       
       const renderFrame = () => {
         if (video.ended || video.paused) {
@@ -526,28 +577,33 @@ export const VideoRecorder = ({
         
         // Calculate scaling to fit video in canvas while maintaining aspect ratio
         const videoAspect = video.videoWidth / video.videoHeight;
-        const canvasAspect = width / height;
+        const canvasAspect = canvasWidth / canvasHeight;
         
         let drawWidth, drawHeight, offsetX, offsetY;
         
         if (videoAspect > canvasAspect) {
-          drawWidth = width;
-          drawHeight = width / videoAspect;
+          drawWidth = canvasWidth;
+          drawHeight = canvasWidth / videoAspect;
           offsetX = 0;
-          offsetY = (height - drawHeight) / 2;
+          offsetY = (canvasHeight - drawHeight) / 2;
         } else {
-          drawHeight = height;
-          drawWidth = height * videoAspect;
-          offsetX = (width - drawWidth) / 2;
+          drawHeight = canvasHeight;
+          drawWidth = canvasHeight * videoAspect;
+          offsetX = (canvasWidth - drawWidth) / 2;
           offsetY = 0;
         }
         
         // Clear canvas
         ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, width, height);
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         
+        // Draw video frame
         ctx.drawImage(video, offsetX, offsetY, drawWidth, drawHeight);
-        ctx.drawImage(filterImg, 0, 0, width, height);
+        
+        // Draw filter overlay if available
+        if (filterImg) {
+          ctx.drawImage(filterImg, 0, 0, canvasWidth, canvasHeight);
+        }
         
         requestAnimationFrame(renderFrame);
       };
@@ -560,25 +616,32 @@ export const VideoRecorder = ({
       
       const exportedBlob = await exportPromise;
       
-      // Download
+      // Download with orientation info in filename
+      const orientationLabel = isVideoPortrait ? 'portrait' : 'landscape';
       const url = URL.createObjectURL(exportedBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `jyserai-${campaignTitle.replace(/\s+/g, '-')}-${quality}-${Date.now()}.webm`;
+      a.download = `jyserai-${campaignTitle.replace(/\s+/g, '-')}-${quality}-${orientationLabel}-${Date.now()}.webm`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      URL.revokeObjectURL(video.src);
       
       onDownload?.();
-      toast.success('Vidéo exportée !');
+      toast.success('Vidéo exportée avec audio !');
     } catch (error) {
       console.error('Processing error:', error);
       toast.error('Erreur lors du traitement');
+    } finally {
+      // Cleanup
+      if (audioContext) {
+        audioContext.close().catch(console.error);
+      }
+      if (videoSrcUrl) {
+        URL.revokeObjectURL(videoSrcUrl);
+      }
+      setIsProcessing(false);
     }
-    
-    setIsProcessing(false);
   };
 
   const reset = () => {
