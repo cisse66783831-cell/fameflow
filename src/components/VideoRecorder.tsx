@@ -207,8 +207,30 @@ export const VideoRecorder = ({
       
       const video = videoRef.current;
       
-      // Draw video frame
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      // Calculate scaling to fit video in canvas while maintaining aspect ratio
+      const videoAspect = video.videoWidth / video.videoHeight;
+      const canvasAspect = canvas.width / canvas.height;
+      
+      let drawWidth, drawHeight, offsetX, offsetY;
+      
+      if (videoAspect > canvasAspect) {
+        drawWidth = canvas.width;
+        drawHeight = canvas.width / videoAspect;
+        offsetX = 0;
+        offsetY = (canvas.height - drawHeight) / 2;
+      } else {
+        drawHeight = canvas.height;
+        drawWidth = canvas.height * videoAspect;
+        offsetX = (canvas.width - drawWidth) / 2;
+        offsetY = 0;
+      }
+      
+      // Clear canvas with black background
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Draw video frame with correct aspect ratio
+      ctx.drawImage(video, offsetX, offsetY, drawWidth, drawHeight);
       
       // Draw filter overlay
       if (filterImgRef.current && filterImgRef.current.complete) {
@@ -689,34 +711,34 @@ export const VideoRecorder = ({
 
         {/* Main Actions */}
         {mode === 'idle' && !recordedBlob && !uploadedVideo && (
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <div className="flex flex-col gap-4 justify-center px-4 w-full max-w-md mx-auto">
             <Button 
               onClick={startCamera}
-              className="flex-1 max-w-xs"
+              size="lg"
+              className="w-full py-6 text-base font-semibold"
               variant="default"
             >
-              <Camera className="w-4 h-4 mr-2" />
+              <Camera className="w-5 h-5 mr-3" />
               Utiliser la caméra
             </Button>
             
-            <label className="flex-1 max-w-xs">
-              <Button 
-                variant="outline" 
-                className="w-full"
-                asChild
-              >
-                <span>
-                  <Upload className="w-4 h-4 mr-2" />
-                  Importer une vidéo
-                </span>
-              </Button>
-              <input
-                type="file"
-                accept="video/*"
-                onChange={handleUpload}
-                className="hidden"
-              />
-            </label>
+            <Button 
+              variant="outline" 
+              size="lg"
+              className="w-full py-6 text-base font-semibold relative overflow-hidden"
+              asChild
+            >
+              <label className="cursor-pointer flex items-center justify-center">
+                <Upload className="w-5 h-5 mr-3" />
+                Importer une vidéo
+                <input
+                  type="file"
+                  accept="video/*"
+                  onChange={handleUpload}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+              </label>
+            </Button>
           </div>
         )}
 

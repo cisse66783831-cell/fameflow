@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { HelmetProvider } from "react-helmet-async";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -16,10 +16,15 @@ import WalletPage from "./pages/Wallet";
 import ScannerPage from "./pages/Scanner";
 import TicketPurchasePage from "./pages/TicketPurchase";
 import SuperAdminPage from "./pages/SuperAdmin";
-import VideoFilterPublicPage from "./pages/VideoFilterPublic";
 import CampaignBySlugPage from "./pages/CampaignBySlug";
 import NotFound from "./pages/NotFound";
 import ServerError from "./pages/ServerError";
+
+// Redirect component for old /v/:slug URLs
+const VideoSlugRedirect = () => {
+  const { slug } = useParams();
+  return <Navigate to={`/${slug}`} replace />;
+};
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -50,7 +55,8 @@ const App = () => (
                 <Route path="/scanner" element={<ScannerPage />} />
                 <Route path="/event/:eventId/ticket" element={<TicketPurchasePage />} />
                 <Route path="/super-admin" element={<SuperAdminPage />} />
-                <Route path="/v/:slug" element={<VideoFilterPublicPage />} />
+                {/* Redirect old /v/:slug to unified /:slug */}
+                <Route path="/v/:slug" element={<VideoSlugRedirect />} />
                 <Route path="/c/:id" element={<CampaignPage />} />
                 <Route path="/:slug" element={<CampaignBySlugPage />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
