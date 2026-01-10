@@ -190,6 +190,7 @@ const CampaignBySlugPage = () => {
                 frameImagePortrait={campaign.frameImagePortrait}
                 frameImageLandscape={campaign.frameImageLandscape || campaign.frameImage}
                 campaignTitle={campaign.title}
+                campaignId={campaign.id}
                 onDownload={handleDownload}
               />
             </div>

@@ -5,11 +5,13 @@ import { toast } from 'sonner';
 import { Camera, Video, Square, Download, Loader2, Upload, RotateCcw, Mic, MicOff, Play, Pause, Volume2, Volume1, VolumeX } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 
 interface VideoRecorderProps {
   frameImagePortrait?: string;
   frameImageLandscape?: string;
   campaignTitle: string;
+  campaignId?: string;
   onDownload?: () => void;
 }
 
@@ -25,6 +27,7 @@ export const VideoRecorder = ({
   frameImagePortrait, 
   frameImageLandscape, 
   campaignTitle,
+  campaignId,
   onDownload 
 }: VideoRecorderProps) => {
   const [mode, setMode] = useState<'idle' | 'camera' | 'upload'>('idle');
@@ -119,8 +122,11 @@ export const VideoRecorder = ({
       
       video.src = uploadVideoUrl;
       video.load();
+      video.pause(); // Ensure video stays paused after load
       
       video.onloadedmetadata = () => {
+        video.pause(); // Double security - pause after metadata loaded
+        
         // Wait for filter image to be ready, then draw first frame
         const drawFirstFrame = () => {
           if (!ctx) return;
@@ -553,14 +559,16 @@ export const VideoRecorder = ({
     
     let audioContext: AudioContext | null = null;
     let videoSrcUrl: string | null = null;
+    let audioBufferSource: AudioBufferSourceNode | null = null;
     
     try {
-      // Create video element - NOT muted to capture audio
+      // Create video element - muted for visual playback (we'll decode audio separately)
       const video = document.createElement('video');
       videoSrcUrl = URL.createObjectURL(uploadedVideo);
       video.src = videoSrcUrl;
       video.crossOrigin = 'anonymous';
       video.playsInline = true;
+      video.muted = true; // Mute the video element - we decode audio separately at full volume
       
       await new Promise<void>((resolve, reject) => {
         video.onloadedmetadata = () => resolve();
@@ -603,23 +611,36 @@ export const VideoRecorder = ({
       // Setup canvas stream for video
       const canvasStream = canvas.captureStream(30);
       
-      // Extract audio from source video with full volume for export
+      // Extract audio at FULL VOLUME using decodeAudioData (independent of video element volume)
       try {
         audioContext = new AudioContext();
-        const audioSource = audioContext.createMediaElementSource(video);
+        
+        // Decode audio directly from the uploaded file - this gives us 100% volume
+        const arrayBuffer = await uploadedVideo.arrayBuffer();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        
+        // Create audio source from decoded buffer
+        audioBufferSource = audioContext.createBufferSource();
+        audioBufferSource.buffer = audioBuffer;
+        
+        // GainNode at full volume
         const gainNode = audioContext.createGain();
-        gainNode.gain.value = 1.0; // Maximum volume for export
+        gainNode.gain.value = 1.0;
+        
+        // Create destination for MediaRecorder
         const audioDestination = audioContext.createMediaStreamDestination();
         
-        audioSource.connect(gainNode);
+        // Connect: source -> gain -> destination
+        audioBufferSource.connect(gainNode);
         gainNode.connect(audioDestination);
-        // Also connect to speakers so processing works (some browsers require this)
-        gainNode.connect(audioContext.destination);
         
         // Add audio tracks to canvas stream
         audioDestination.stream.getAudioTracks().forEach(track => {
           canvasStream.addTrack(track);
         });
+        
+        // Start audio playback (will sync with video.play())
+        audioBufferSource.start(0);
       } catch (audioError) {
         console.warn('Could not extract audio, continuing without:', audioError);
       }
@@ -655,9 +676,7 @@ export const VideoRecorder = ({
       
       mediaRecorder.start(100);
       
-      // Need to unmute for audio extraction to work
-      video.muted = false;
-      video.volume = 0.01; // Very low volume to avoid echo
+      // Start video (muted, audio is from audioBufferSource)
       await video.play();
       
       const renderFrame = () => {
@@ -718,6 +737,26 @@ export const VideoRecorder = ({
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       
+      // Track anonymous download stats
+      if (campaignId) {
+        const sessionId = localStorage.getItem('download_session') || (() => {
+          const id = crypto.randomUUID();
+          localStorage.setItem('download_session', id);
+          return id;
+        })();
+        
+        try {
+          await supabase.from('download_stats').insert({
+            campaign_id: campaignId,
+            media_type: 'video',
+            user_agent: navigator.userAgent,
+            session_id: sessionId
+          });
+        } catch (statsError) {
+          console.warn('Could not track download stats:', statsError);
+        }
+      }
+      
       onDownload?.();
       toast.success('Vidéo exportée avec audio !');
     } catch (error) {
@@ -761,6 +800,7 @@ export const VideoRecorder = ({
       <video 
         ref={uploadedVideoRef}
         playsInline
+        autoPlay={false}
         className="hidden"
         onEnded={() => setIsUploadPlaying(false)}
       />
