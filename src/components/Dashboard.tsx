@@ -8,12 +8,13 @@ import { CreateCampaignModal } from './CreateCampaignModal';
 import { EditCampaignModal } from './EditCampaignModal';
 import { PhotoEditor } from './PhotoEditor';
 import { AnalyticsChart } from './AnalyticsChart';
+import { DownloadAnalytics } from './DownloadAnalytics';
 import { BatchGenerator } from './BatchGenerator';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Plus, Eye, Download, Layers, Beaker, 
-  ArrowLeft, Zap, Sparkles, LogOut, BarChart3, LayoutGrid, Users
+  ArrowLeft, Zap, Sparkles, LogOut, BarChart3, LayoutGrid, Users, Activity
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -191,6 +192,10 @@ export const Dashboard = () => {
               <BarChart3 className="w-4 h-4" />
               Analytics
             </TabsTrigger>
+            <TabsTrigger value="downloads" className="gap-2">
+              <Activity className="w-4 h-4" />
+              Téléchargements
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="campaigns">
@@ -256,6 +261,10 @@ export const Dashboard = () => {
 
           <TabsContent value="analytics">
             <AnalyticsChart campaigns={campaigns} />
+          </TabsContent>
+
+          <TabsContent value="downloads">
+            <DownloadAnalytics />
           </TabsContent>
         </Tabs>
       </main>
