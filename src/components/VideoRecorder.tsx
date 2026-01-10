@@ -2,7 +2,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Camera, Video, Square, Download, Loader2, Upload, RotateCcw, Mic, MicOff, Play, Pause, Volume2 } from 'lucide-react';
+import { Camera, Video, Square, Download, Loader2, Upload, RotateCcw, Mic, MicOff, Play, Pause, Volume2, Volume1, VolumeX } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 
 interface VideoRecorderProps {
@@ -39,6 +40,7 @@ export const VideoRecorder = ({
   const [isUploadPlaying, setIsUploadPlaying] = useState(false);
   const [uploadVideoUrl, setUploadVideoUrl] = useState<string | null>(null);
   const [audioLevel, setAudioLevel] = useState(0);
+  const [volume, setVolume] = useState(1); // Volume at 100% by default
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -100,6 +102,13 @@ export const VideoRecorder = ({
       };
     }
   }, [uploadedVideo, mode]);
+
+  // Sync volume with video element
+  useEffect(() => {
+    if (uploadedVideoRef.current) {
+      uploadedVideoRef.current.volume = volume;
+    }
+  }, [volume]);
 
   // Start preview loop when upload video is ready
   useEffect(() => {
@@ -594,14 +603,18 @@ export const VideoRecorder = ({
       // Setup canvas stream for video
       const canvasStream = canvas.captureStream(30);
       
-      // Extract audio from source video and add to stream
+      // Extract audio from source video with full volume for export
       try {
         audioContext = new AudioContext();
         const audioSource = audioContext.createMediaElementSource(video);
+        const gainNode = audioContext.createGain();
+        gainNode.gain.value = 1.0; // Maximum volume for export
         const audioDestination = audioContext.createMediaStreamDestination();
-        audioSource.connect(audioDestination);
+        
+        audioSource.connect(gainNode);
+        gainNode.connect(audioDestination);
         // Also connect to speakers so processing works (some browsers require this)
-        audioSource.connect(audioContext.destination);
+        gainNode.connect(audioContext.destination);
         
         // Add audio tracks to canvas stream
         audioDestination.stream.getAudioTracks().forEach(track => {
@@ -747,7 +760,6 @@ export const VideoRecorder = ({
       {/* Hidden video element for uploaded video */}
       <video 
         ref={uploadedVideoRef}
-        muted
         playsInline
         className="hidden"
         onEnded={() => setIsUploadPlaying(false)}
@@ -809,24 +821,44 @@ export const VideoRecorder = ({
           </button>
         )}
         
-        {/* Audio Volume Indicator */}
-        {mode === 'upload' && isUploadPlaying && (
+        {/* Volume Control with Audio Level Indicator */}
+        {mode === 'upload' && uploadedVideo && (
           <div className="absolute bottom-4 right-4 flex items-center gap-2 bg-black/60 backdrop-blur-sm px-3 py-2 rounded-full">
-            <Volume2 className="w-4 h-4 text-white" />
-            <div className="flex items-end gap-0.5 h-4">
-              {[0.2, 0.4, 0.6, 0.8, 1].map((threshold, index) => (
-                <div
-                  key={index}
-                  className={cn(
-                    "w-1 rounded-full transition-all duration-75",
-                    audioLevel >= threshold ? "bg-primary" : "bg-white/30"
-                  )}
-                  style={{
-                    height: `${(index + 1) * 20}%`,
-                  }}
-                />
-              ))}
-            </div>
+            <button 
+              onClick={() => setVolume(v => v === 0 ? 1 : 0)}
+              className="text-white hover:text-primary transition-colors"
+            >
+              {volume === 0 ? (
+                <VolumeX className="w-4 h-4" />
+              ) : volume < 0.5 ? (
+                <Volume1 className="w-4 h-4" />
+              ) : (
+                <Volume2 className="w-4 h-4" />
+              )}
+            </button>
+            <Slider
+              value={[volume * 100]}
+              onValueChange={([val]) => setVolume(val / 100)}
+              max={100}
+              step={1}
+              className="w-20"
+            />
+            {isUploadPlaying && (
+              <div className="flex items-end gap-0.5 h-4">
+                {[0.2, 0.4, 0.6, 0.8, 1].map((threshold, index) => (
+                  <div
+                    key={index}
+                    className={cn(
+                      "w-1 rounded-full transition-all duration-75",
+                      audioLevel >= threshold ? "bg-primary" : "bg-white/30"
+                    )}
+                    style={{
+                      height: `${(index + 1) * 20}%`,
+                    }}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
         
