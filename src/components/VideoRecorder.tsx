@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Camera, Video, Square, Download, Loader2, Upload, RotateCcw, Mic, MicOff, Play, Pause, Volume2, Volume1, VolumeX } from 'lucide-react';
+import { Camera, Video, Square, Download, Loader2, Upload, RotateCcw, Mic, MicOff, Play, Pause, Volume2, Volume1, VolumeX, Share2 } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
@@ -79,6 +79,7 @@ export const VideoRecorder = ({
   const [uploadProgress, setUploadProgress] = useState(0); // 0-100 for import
   const [exportProgress, setExportProgress] = useState(0); // 0-100 for export
   const [currentMimeInfo, setCurrentMimeInfo] = useState<{ mimeType: string; extension: string; isWhatsAppCompatible: boolean } | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -873,6 +874,205 @@ export const VideoRecorder = ({
     setIsUploadPlaying(false);
   };
 
+  // Share video directly using Web Share API
+  const shareVideo = async (blob: Blob) => {
+    const extension = blob.type.includes('mp4') ? 'mp4' : 'webm';
+    const fileName = `jyserai-${campaignTitle.replace(/\s+/g, '-')}.${extension}`;
+    const file = new File([blob], fileName, { type: blob.type });
+
+    try {
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        setIsSharing(true);
+        await navigator.share({
+          files: [file],
+          title: campaignTitle,
+          text: `Regardez ma vidéo ${campaignTitle} !`
+        });
+        toast.success('Vidéo partagée avec succès !');
+      } else {
+        toast.error('Le partage direct n\'est pas supporté sur ce navigateur. Téléchargez la vidéo pour la partager.');
+      }
+    } catch (error) {
+      if ((error as Error).name !== 'AbortError') {
+        console.error('Share error:', error);
+        toast.error('Erreur lors du partage');
+      }
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  // Process uploaded video and share directly
+  const processAndShareUploadedVideo = async () => {
+    if (!uploadedVideo) return;
+    
+    setIsProcessing(true);
+    setExportProgress(0);
+    toast.info('Préparation de la vidéo pour le partage...');
+    
+    let audioContext: AudioContext | null = null;
+    let videoSrcUrl: string | null = null;
+    let audioBufferSource: AudioBufferSourceNode | null = null;
+    
+    try {
+      const video = document.createElement('video');
+      videoSrcUrl = URL.createObjectURL(uploadedVideo);
+      video.src = videoSrcUrl;
+      video.crossOrigin = 'anonymous';
+      video.playsInline = true;
+      video.muted = true;
+      
+      await new Promise<void>((resolve, reject) => {
+        video.onloadedmetadata = () => resolve();
+        video.onerror = () => reject(new Error('Failed to load video'));
+      });
+      
+      const isVideoPortrait = video.videoHeight > video.videoWidth;
+      const { width: baseWidth, height: baseHeight, bitrate } = QUALITY_CONFIG[quality];
+      const canvasWidth = isVideoPortrait ? baseHeight : baseWidth;
+      const canvasHeight = isVideoPortrait ? baseWidth : baseHeight;
+      const frameToUse = isVideoPortrait ? frameImagePortrait : frameImageLandscape;
+      
+      const canvas = document.createElement('canvas');
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
+      const ctx = canvas.getContext('2d')!;
+      
+      let filterImg: HTMLImageElement | null = null;
+      if (frameToUse) {
+        filterImg = new Image();
+        filterImg.crossOrigin = 'anonymous';
+        await new Promise<void>((resolve) => {
+          filterImg!.onload = () => resolve();
+          filterImg!.onerror = () => {
+            filterImg = null;
+            resolve();
+          };
+          filterImg!.src = frameToUse;
+        });
+      }
+      
+      const canvasStream = canvas.captureStream(30);
+      
+      try {
+        audioContext = new AudioContext();
+        const arrayBuffer = await uploadedVideo.arrayBuffer();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        
+        audioBufferSource = audioContext.createBufferSource();
+        audioBufferSource.buffer = audioBuffer;
+        
+        const gainNode = audioContext.createGain();
+        gainNode.gain.value = 1.0;
+        
+        const audioDestination = audioContext.createMediaStreamDestination();
+        audioBufferSource.connect(gainNode);
+        gainNode.connect(audioDestination);
+        
+        audioDestination.stream.getAudioTracks().forEach(track => {
+          canvasStream.addTrack(track);
+        });
+        
+        audioBufferSource.start(0);
+      } catch (audioError) {
+        console.warn('Could not extract audio:', audioError);
+      }
+      
+      const mimeInfo = getPreferredMimeType();
+      
+      const mediaRecorder = new MediaRecorder(canvasStream, { 
+        mimeType: mimeInfo.mimeType,
+        videoBitsPerSecond: bitrate,
+        audioBitsPerSecond: 128000
+      });
+      
+      const chunks: Blob[] = [];
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+      
+      const exportPromise = new Promise<Blob>((resolve) => {
+        mediaRecorder.onstop = () => {
+          resolve(new Blob(chunks, { type: mimeInfo.mimeType.split(';')[0] }));
+        };
+      });
+      
+      mediaRecorder.start(100);
+      await video.play();
+      
+      const progressInterval = setInterval(() => {
+        if (video.duration > 0) {
+          const progress = Math.round((video.currentTime / video.duration) * 100);
+          setExportProgress(progress);
+        }
+      }, 100);
+      
+      const renderFrame = () => {
+        if (video.ended || video.paused) {
+          clearInterval(progressInterval);
+          setExportProgress(100);
+          mediaRecorder.stop();
+          return;
+        }
+        
+        const videoAspect = video.videoWidth / video.videoHeight;
+        const canvasAspect = canvasWidth / canvasHeight;
+        
+        let drawWidth, drawHeight, offsetX, offsetY;
+        
+        if (videoAspect > canvasAspect) {
+          drawWidth = canvasWidth;
+          drawHeight = canvasWidth / videoAspect;
+          offsetX = 0;
+          offsetY = (canvasHeight - drawHeight) / 2;
+        } else {
+          drawHeight = canvasHeight;
+          drawWidth = canvasHeight * videoAspect;
+          offsetX = (canvasWidth - drawWidth) / 2;
+          offsetY = 0;
+        }
+        
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        ctx.drawImage(video, offsetX, offsetY, drawWidth, drawHeight);
+        
+        if (filterImg) {
+          ctx.drawImage(filterImg, 0, 0, canvasWidth, canvasHeight);
+        }
+        
+        requestAnimationFrame(renderFrame);
+      };
+      
+      renderFrame();
+      
+      await new Promise<void>((resolve) => {
+        video.onended = () => {
+          clearInterval(progressInterval);
+          resolve();
+        };
+      });
+      
+      const exportedBlob = await exportPromise;
+      setExportProgress(100);
+      
+      // Share the processed video
+      await shareVideo(exportedBlob);
+      
+    } catch (error) {
+      console.error('Processing error:', error);
+      toast.error('Erreur lors du traitement');
+    } finally {
+      if (audioContext) {
+        audioContext.close().catch(console.error);
+      }
+      if (videoSrcUrl) {
+        URL.revokeObjectURL(videoSrcUrl);
+      }
+      setIsProcessing(false);
+      setExportProgress(0);
+    }
+  };
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -1152,7 +1352,7 @@ export const VideoRecorder = ({
               <br />
               <span className="text-xs">Cliquez sur la vidéo pour lecture/pause</span>
             </p>
-            <div className="flex gap-3">
+            <div className="flex gap-3 flex-wrap justify-center">
               <label>
                 <Button variant="outline" asChild>
                   <span>
@@ -1173,9 +1373,8 @@ export const VideoRecorder = ({
               <Button 
                 onClick={processUploadedVideo}
                 disabled={isProcessing}
-                className="min-w-[180px]"
               >
-                {isProcessing ? (
+                {isProcessing && !isSharing ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     {exportProgress > 0 ? `${exportProgress}%` : 'Préparation...'}
@@ -1187,6 +1386,23 @@ export const VideoRecorder = ({
                   </>
                 )}
               </Button>
+              <Button 
+                onClick={processAndShareUploadedVideo}
+                disabled={isProcessing}
+                className="bg-[#25D366] hover:bg-[#25D366]/90 text-white"
+              >
+                {isProcessing && isSharing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {exportProgress > 0 ? `${exportProgress}%` : 'Préparation...'}
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="w-4 h-4 mr-2" />
+                    Partager
+                  </>
+                )}
+              </Button>
             </div>
           </div>
         )}
@@ -1194,14 +1410,14 @@ export const VideoRecorder = ({
         {/* Recorded Video Controls */}
         {recordedBlob && !isRecording && (
           <div className="flex flex-col gap-3 items-center">
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={reset} disabled={isProcessing}>
+            <div className="flex gap-3 flex-wrap justify-center">
+              <Button variant="outline" onClick={reset} disabled={isProcessing || isSharing}>
                 <RotateCcw className="w-4 h-4 mr-2" />
                 Recommencer
               </Button>
               <Button 
                 onClick={() => processAndDownload(recordedBlob)}
-                disabled={isProcessing}
+                disabled={isProcessing || isSharing}
               >
                 {isProcessing ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -1209,6 +1425,18 @@ export const VideoRecorder = ({
                   <Download className="w-4 h-4 mr-2" />
                 )}
                 {!isProcessing && 'Télécharger'}
+              </Button>
+              <Button 
+                onClick={() => shareVideo(recordedBlob)}
+                disabled={isProcessing || isSharing}
+                className="bg-[#25D366] hover:bg-[#25D366]/90 text-white"
+              >
+                {isSharing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Share2 className="w-4 h-4 mr-2" />
+                )}
+                {!isSharing && 'Partager'}
               </Button>
             </div>
           </div>
