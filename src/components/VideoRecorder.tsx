@@ -7,6 +7,7 @@ import { Slider } from '@/components/ui/slider';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { useVideoConverter } from '@/hooks/useVideoConverter';
 
 interface VideoRecorderProps {
   frameImagePortrait?: string;
@@ -47,6 +48,9 @@ export const VideoRecorder = ({
   const [volume, setVolume] = useState(1); // Volume at 100% by default
   const [uploadProgress, setUploadProgress] = useState(0); // 0-100 for import
   const [exportProgress, setExportProgress] = useState(0); // 0-100 for export
+  
+  // MP4 conversion hook for WhatsApp compatibility
+  const { convertToMp4, conversionState, isConverting } = useVideoConverter();
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -550,8 +554,26 @@ export const VideoRecorder = ({
     setIsProcessing(true);
     
     try {
-      // For now, just download the WebM directly
-      // TODO: Add server-side MP4 conversion for iOS
+      // Convert WebM to MP4 for WhatsApp/iOS compatibility
+      toast.info('Conversion en MP4 pour WhatsApp...');
+      const mp4Blob = await convertToMp4(sourceBlob);
+      
+      const url = URL.createObjectURL(mp4Blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `jyserai-${campaignTitle.replace(/\s+/g, '-')}-${quality}-${Date.now()}.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      onDownload?.();
+      toast.success(`Vidéo MP4 exportée en ${quality} !`);
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Erreur lors de l\'export. Téléchargement en WebM...');
+      
+      // Fallback to WebM if MP4 conversion fails
       const url = URL.createObjectURL(sourceBlob);
       const a = document.createElement('a');
       a.href = url;
@@ -562,10 +584,6 @@ export const VideoRecorder = ({
       URL.revokeObjectURL(url);
       
       onDownload?.();
-      toast.success(`Vidéo exportée en ${quality} !`);
-    } catch (error) {
-      console.error('Export error:', error);
-      toast.error('Erreur lors de l\'export');
     }
     
     setIsProcessing(false);
@@ -760,12 +778,29 @@ export const VideoRecorder = ({
       
       const exportedBlob = await exportPromise;
       
+      // Convert to MP4 for WhatsApp compatibility
+      setExportProgress(100);
+      toast.info('Conversion en MP4 pour WhatsApp...');
+      
+      let finalBlob: Blob;
+      let fileExtension: string;
+      
+      try {
+        finalBlob = await convertToMp4(exportedBlob);
+        fileExtension = 'mp4';
+      } catch (conversionError) {
+        console.warn('MP4 conversion failed, using WebM:', conversionError);
+        finalBlob = exportedBlob;
+        fileExtension = 'webm';
+        toast.warning('Conversion MP4 échouée, export en WebM');
+      }
+      
       // Download with orientation info in filename
       const orientationLabel = isVideoPortrait ? 'portrait' : 'landscape';
-      const url = URL.createObjectURL(exportedBlob);
+      const url = URL.createObjectURL(finalBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `jyserai-${campaignTitle.replace(/\s+/g, '-')}-${quality}-${orientationLabel}-${Date.now()}.webm`;
+      a.download = `jyserai-${campaignTitle.replace(/\s+/g, '-')}-${quality}-${orientationLabel}-${Date.now()}.${fileExtension}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -792,7 +827,7 @@ export const VideoRecorder = ({
       }
       
       onDownload?.();
-      toast.success('Vidéo exportée avec audio !');
+      toast.success(fileExtension === 'mp4' ? 'Vidéo MP4 exportée avec succès !' : 'Vidéo exportée avec audio !');
     } catch (error) {
       console.error('Processing error:', error);
       toast.error('Erreur lors du traitement');
@@ -910,13 +945,29 @@ export const VideoRecorder = ({
         )}
         
         {/* Export progress overlay */}
-        {isProcessing && exportProgress > 0 && (
+        {isProcessing && exportProgress > 0 && !isConverting && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70">
             <Loader2 className="w-10 h-10 text-primary animate-spin mb-4" />
             <div className="w-3/4 max-w-xs">
               <Progress value={exportProgress} className="h-3 mb-2" />
               <p className="text-white text-center text-sm">
                 Export en cours... {exportProgress}%
+              </p>
+            </div>
+          </div>
+        )}
+        
+        {/* MP4 Conversion progress overlay */}
+        {isConverting && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70">
+            <Loader2 className="w-10 h-10 text-primary animate-spin mb-4" />
+            <div className="w-3/4 max-w-xs">
+              <Progress value={conversionState.progress} className="h-3 mb-2" />
+              <p className="text-white text-center text-sm">
+                {conversionState.message || 'Conversion MP4...'}
+              </p>
+              <p className="text-white/60 text-center text-xs mt-1">
+                Compatible WhatsApp & iOS
               </p>
             </div>
           </div>
@@ -1113,10 +1164,15 @@ export const VideoRecorder = ({
               </label>
               <Button 
                 onClick={processUploadedVideo}
-                disabled={isProcessing}
+                disabled={isProcessing || isConverting}
                 className="min-w-[180px]"
               >
-                {isProcessing ? (
+                {isConverting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {conversionState.progress > 0 ? `MP4 ${conversionState.progress}%` : 'Conversion...'}
+                  </>
+                ) : isProcessing ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     {exportProgress > 0 ? `${exportProgress}%` : 'Préparation...'}
@@ -1124,7 +1180,7 @@ export const VideoRecorder = ({
                 ) : (
                   <>
                     <Download className="w-4 h-4 mr-2" />
-                    Télécharger avec filtre
+                    Télécharger MP4
                   </>
                 )}
               </Button>
@@ -1136,20 +1192,25 @@ export const VideoRecorder = ({
         {recordedBlob && !isRecording && (
           <div className="flex flex-col gap-3 items-center">
             <div className="flex gap-3">
-              <Button variant="outline" onClick={reset}>
+              <Button variant="outline" onClick={reset} disabled={isConverting}>
                 <RotateCcw className="w-4 h-4 mr-2" />
                 Recommencer
               </Button>
               <Button 
                 onClick={() => processAndDownload(recordedBlob)}
-                disabled={isProcessing}
+                disabled={isProcessing || isConverting}
               >
-                {isProcessing ? (
+                {isConverting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    MP4 {conversionState.progress}%
+                  </>
+                ) : isProcessing ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : (
                   <Download className="w-4 h-4 mr-2" />
                 )}
-                Télécharger
+                {!isConverting && !isProcessing && 'Télécharger MP4'}
               </Button>
             </div>
           </div>
