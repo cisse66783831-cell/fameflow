@@ -263,6 +263,12 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
     setIsDragging(false);
   };
 
+  // iOS detection helper
+  const isIOS = () => {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  };
+
   const handleDownload = async () => {
     // Créer un canvas HD pour l'export
     const hdCanvas = document.createElement('canvas');
@@ -336,14 +342,110 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
         hdCtx.restore();
       });
 
-      // Download
-      const link = document.createElement('a');
-      link.download = `${campaign.title.replace(/\s+/g, '-')}-HD.png`;
-      link.href = hdCanvas.toDataURL('image/png', 1.0);
-      link.click();
-      
-      onDownload();
-      toast.success(`Image HD téléchargée (${HD_SIZE.width}x${HD_SIZE.height}px)`);
+      // Check for iOS device
+      const isIOSDevice = isIOS();
+
+      if (isIOSDevice) {
+        // iOS method: try Web Share API first, fallback to opening in new tab
+        hdCanvas.toBlob(async (blob) => {
+          if (!blob) {
+            toast.error('Erreur lors de la création de l\'image');
+            return;
+          }
+
+          // Try Web Share API first
+          if (navigator.share && navigator.canShare) {
+            const file = new File([blob], `${campaign.title.replace(/\s+/g, '-')}-HD.png`, { type: 'image/png' });
+            const shareData = { files: [file], title: campaign.title };
+            
+            if (navigator.canShare(shareData)) {
+              try {
+                await navigator.share(shareData);
+                onDownload();
+                toast.success('Image partagée avec succès !');
+                return;
+              } catch (e) {
+                // User cancelled or error - fallback to new tab method
+                if ((e as Error).name !== 'AbortError') {
+                  console.log('Share failed, falling back to new tab method');
+                }
+              }
+            }
+          }
+
+          // Fallback: Open in new tab with instructions
+          const url = URL.createObjectURL(blob);
+          const newWindow = window.open('', '_blank');
+          if (newWindow) {
+            newWindow.document.write(`
+              <!DOCTYPE html>
+              <html>
+                <head>
+                  <title>Enregistrer l'image</title>
+                  <meta name="viewport" content="width=device-width, initial-scale=1">
+                  <style>
+                    * { box-sizing: border-box; margin: 0; padding: 0; }
+                    body { 
+                      background: #000; 
+                      min-height: 100vh;
+                      display: flex;
+                      flex-direction: column;
+                      align-items: center;
+                      padding: 20px;
+                      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                    }
+                    .instructions {
+                      color: white;
+                      text-align: center;
+                      padding: 20px;
+                      font-size: 16px;
+                      line-height: 1.6;
+                      max-width: 300px;
+                    }
+                    .highlight {
+                      color: #007AFF;
+                      font-weight: 600;
+                    }
+                    .emoji { font-size: 24px; margin-bottom: 10px; display: block; }
+                    img { 
+                      max-width: 100%; 
+                      max-height: 70vh;
+                      border-radius: 12px;
+                      margin-top: 20px;
+                    }
+                  </style>
+                </head>
+                <body>
+                  <div class="instructions">
+                    <span class="emoji">📱</span>
+                    <p><span class="highlight">Appuyez longuement</span> sur l'image</p>
+                    <p style="margin-top: 8px;">Puis sélectionnez <span class="highlight">"Ajouter aux photos"</span></p>
+                  </div>
+                  <img src="${url}" alt="Image à télécharger"/>
+                </body>
+              </html>
+            `);
+            newWindow.document.close();
+          } else {
+            // If popup blocked, open URL directly
+            window.location.href = url;
+          }
+          
+          onDownload();
+          toast.success('Appuyez longuement sur l\'image pour l\'enregistrer');
+        }, 'image/png', 1.0);
+      } else {
+        // Standard download for other browsers
+        const link = document.createElement('a');
+        link.download = `${campaign.title.replace(/\s+/g, '-')}-HD.png`;
+        link.href = hdCanvas.toDataURL('image/png', 1.0);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        onDownload();
+        toast.success(`Image HD téléchargée (${HD_SIZE.width}x${HD_SIZE.height}px)`);
+      }
     } catch (error) {
       console.error('HD export error:', error);
       toast.error('Erreur lors de l\'export HD');
@@ -453,10 +555,51 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
       }
 
       pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
-      pdf.save(`${campaign.title.replace(/\s+/g, '-')}-HD.pdf`);
-      
-      onDownload();
-      toast.success('PDF HD téléchargé (qualité 300 DPI)');
+
+      // Check for iOS device
+      const isIOSDevice = isIOS();
+
+      if (isIOSDevice) {
+        // iOS method: create blob and open in new tab
+        const pdfBlob = pdf.output('blob');
+        
+        // Try Web Share API first
+        if (navigator.share && navigator.canShare) {
+          const file = new File([pdfBlob], `${campaign.title.replace(/\s+/g, '-')}-HD.pdf`, { type: 'application/pdf' });
+          const shareData = { files: [file], title: campaign.title };
+          
+          if (navigator.canShare(shareData)) {
+            try {
+              await navigator.share(shareData);
+              onDownload();
+              toast.success('PDF partagé avec succès !');
+              return;
+            } catch (e) {
+              // User cancelled or error - fallback to new tab method
+              if ((e as Error).name !== 'AbortError') {
+                console.log('Share failed, falling back to new tab method');
+              }
+            }
+          }
+        }
+
+        // Fallback: Open PDF in new tab
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        const newWindow = window.open(pdfUrl, '_blank');
+        
+        if (!newWindow) {
+          // If popup blocked, try direct navigation
+          window.location.href = pdfUrl;
+        }
+        
+        onDownload();
+        toast.success('Utilisez le bouton partage pour enregistrer le PDF');
+      } else {
+        // Standard download for other browsers
+        pdf.save(`${campaign.title.replace(/\s+/g, '-')}-HD.pdf`);
+        onDownload();
+        toast.success('PDF HD téléchargé (qualité 300 DPI)');
+      }
     } catch (error) {
       console.error('PDF export error:', error);
       toast.error('Erreur lors de l\'export PDF');
