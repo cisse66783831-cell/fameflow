@@ -94,7 +94,24 @@ export const VideoRecorder = ({
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const audioAnimationRef = useRef<number | null>(null);
+  const [isConverting, setIsConverting] = useState(false);
 
+  // Convert WebM to MP4 using Cloudinary edge function
+  const convertToMP4 = async (webmBlob: Blob): Promise<Blob> => {
+    const formData = new FormData();
+    formData.append('video', webmBlob, 'video.webm');
+    
+    const response = await supabase.functions.invoke('convert-to-mp4', {
+      body: formData,
+    });
+    
+    if (response.error) {
+      throw new Error(response.error.message || 'Conversion failed');
+    }
+    
+    // The response data is the MP4 blob
+    return new Blob([response.data], { type: 'video/mp4' });
+  };
   // Determine which frame to use based on orientation
   const currentFrame = isPortrait ? frameImagePortrait : frameImageLandscape;
 
@@ -586,11 +603,28 @@ export const VideoRecorder = ({
     setIsProcessing(true);
     
     try {
-      // Determine file extension from blob type
-      const isMP4 = sourceBlob.type.includes('mp4');
-      const extension = isMP4 ? 'mp4' : 'webm';
+      let finalBlob = sourceBlob;
+      let isMP4 = sourceBlob.type.includes('mp4');
       
-      const url = URL.createObjectURL(sourceBlob);
+      // If WebM, convert to MP4 for universal compatibility
+      if (!isMP4) {
+        toast.info('Conversion en MP4 pour compatibilité WhatsApp...', { duration: 3000 });
+        setIsConverting(true);
+        
+        try {
+          finalBlob = await convertToMP4(sourceBlob);
+          isMP4 = true;
+          toast.success('Conversion MP4 réussie !');
+        } catch (convError) {
+          console.warn('MP4 conversion failed, keeping WebM:', convError);
+          toast.warning('Conversion MP4 impossible, export en WebM');
+        } finally {
+          setIsConverting(false);
+        }
+      }
+      
+      const extension = isMP4 ? 'mp4' : 'webm';
+      const url = URL.createObjectURL(finalBlob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `jyserai-${campaignTitle.replace(/\s+/g, '-')}-${quality}-${Date.now()}.${extension}`;
@@ -600,13 +634,7 @@ export const VideoRecorder = ({
       URL.revokeObjectURL(url);
       
       onDownload?.();
-      
-      if (isMP4) {
-        toast.success(`Vidéo MP4 exportée en ${quality} - Compatible WhatsApp !`);
-      } else {
-        toast.success(`Vidéo WebM exportée en ${quality}`);
-        toast.info('Pour partager sur WhatsApp iOS, utilisez Chrome ou Safari.', { duration: 5000 });
-      }
+      toast.success(`Vidéo MP4 exportée en ${quality} - Compatible WhatsApp !`);
     } catch (error) {
       console.error('Export error:', error);
       toast.error('Erreur lors de l\'export');
@@ -813,17 +841,33 @@ export const VideoRecorder = ({
         };
       });
       
-      const exportedBlob = await exportPromise;
+      let finalBlob = await exportPromise;
+      let isMP4 = mimeInfo.mimeType.includes('mp4');
       
-      // Determine file extension based on the recorded format
-      const isMP4 = mimeInfo.mimeType.includes('mp4');
+      // If WebM was recorded, convert to MP4 for universal compatibility
+      if (!isMP4) {
+        setExportProgress(85);
+        toast.info('Conversion en MP4 pour compatibilité WhatsApp...', { duration: 3000 });
+        setIsConverting(true);
+        
+        try {
+          finalBlob = await convertToMP4(finalBlob);
+          isMP4 = true;
+          toast.success('Conversion MP4 réussie !');
+        } catch (convError) {
+          console.warn('MP4 conversion failed, keeping WebM:', convError);
+          toast.warning('Conversion MP4 impossible, export en WebM');
+        } finally {
+          setIsConverting(false);
+        }
+      }
+      
       const fileExtension = isMP4 ? 'mp4' : 'webm';
-      
       setExportProgress(100);
       
       // Download with orientation info in filename
       const orientationLabel = isVideoPortrait ? 'portrait' : 'landscape';
-      const url = URL.createObjectURL(exportedBlob);
+      const url = URL.createObjectURL(finalBlob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `jyserai-${campaignTitle.replace(/\s+/g, '-')}-${quality}-${orientationLabel}-${Date.now()}.${fileExtension}`;
@@ -853,13 +897,7 @@ export const VideoRecorder = ({
       }
       
       onDownload?.();
-      
-      if (isMP4) {
-        toast.success('Vidéo MP4 exportée avec succès - Compatible WhatsApp !');
-      } else {
-        toast.success('Vidéo exportée avec audio !');
-        toast.info('Pour partager sur WhatsApp iOS, utilisez Chrome ou Safari.', { duration: 5000 });
-      }
+      toast.success('Vidéo MP4 exportée avec succès - Compatible WhatsApp !');
     } catch (error) {
       console.error('Processing error:', error);
       toast.error('Erreur lors du traitement');
