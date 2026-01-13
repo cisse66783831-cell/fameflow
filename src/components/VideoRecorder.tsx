@@ -704,8 +704,7 @@ export const VideoRecorder = ({
           canvasStream.addTrack(track);
         });
         
-        // Start audio playback (will sync with video.play())
-        audioBufferSource.start(0);
+        // Audio will be started after video.play() to sync properly
       } catch (audioError) {
         console.warn('Could not extract audio, continuing without:', audioError);
       }
@@ -734,7 +733,7 @@ export const VideoRecorder = ({
       
       const exportPromise = new Promise<Blob>((resolve) => {
         mediaRecorder.onstop = () => {
-          resolve(new Blob(chunks, { type: 'video/webm' }));
+          resolve(new Blob(chunks, { type: mimeInfo.mimeType.split(';')[0] }));
         };
       });
       
@@ -742,6 +741,11 @@ export const VideoRecorder = ({
       
       // Start video (muted, audio is from audioBufferSource)
       await video.play();
+      
+      // Start audio NOW, synchronized with video
+      if (audioBufferSource) {
+        audioBufferSource.start(0);
+      }
       
       // Track export progress
       const progressInterval = setInterval(() => {
@@ -797,6 +801,14 @@ export const VideoRecorder = ({
       await new Promise<void>((resolve) => {
         video.onended = () => {
           clearInterval(progressInterval);
+          // Stop audio when video ends
+          if (audioBufferSource) {
+            try {
+              audioBufferSource.stop();
+            } catch (e) {
+              // Ignore if already stopped
+            }
+          }
           resolve();
         };
       });
