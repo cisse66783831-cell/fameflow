@@ -9,6 +9,7 @@ import { TextElement } from '@/types/campaign';
 import { ArrowLeft, Loader2, Sparkles, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Helmet } from 'react-helmet-async';
+import { trackDownload } from '@/utils/trackDownload';
 
 const mapDbToCampaign = (db: {
   id: string;
@@ -94,9 +95,16 @@ const CampaignBySlugPage = () => {
     fetchCampaign();
   }, [slug]);
 
-  const handleDownload = async () => {
+  const handleDownload = async (mediaType: 'photo' | 'pdf' = 'photo') => {
     if (!campaign) return;
     
+    // Track download in download_stats (works for anonymous users)
+    await trackDownload({
+      campaignId: campaign.id,
+      mediaType: mediaType === 'pdf' ? 'pdf' : 'photo',
+    });
+    
+    // Also update the campaign counter
     await supabase
       .from('campaigns')
       .update({ downloads: campaign.downloads + 1 })

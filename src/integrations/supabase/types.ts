@@ -84,29 +84,44 @@ export type Database = {
       }
       download_stats: {
         Row: {
+          browser: string | null
           campaign_id: string | null
+          city: string | null
+          country: string | null
           created_at: string | null
+          device_type: string | null
           event_id: string | null
           id: string
           media_type: string
+          os: string | null
           session_id: string | null
           user_agent: string | null
         }
         Insert: {
+          browser?: string | null
           campaign_id?: string | null
+          city?: string | null
+          country?: string | null
           created_at?: string | null
+          device_type?: string | null
           event_id?: string | null
           id?: string
           media_type: string
+          os?: string | null
           session_id?: string | null
           user_agent?: string | null
         }
         Update: {
+          browser?: string | null
           campaign_id?: string | null
+          city?: string | null
+          country?: string | null
           created_at?: string | null
+          device_type?: string | null
           event_id?: string | null
           id?: string
           media_type?: string
+          os?: string | null
           session_id?: string | null
           user_agent?: string | null
         }
