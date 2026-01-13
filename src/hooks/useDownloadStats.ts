@@ -10,6 +10,11 @@ interface DownloadStat {
   user_agent: string | null;
   session_id: string | null;
   created_at: string | null;
+  device_type: string | null;
+  browser: string | null;
+  os: string | null;
+  country: string | null;
+  city: string | null;
 }
 
 interface DailyTrend {
@@ -140,18 +145,28 @@ export const useDownloadStats = () => {
     }));
   };
 
-  // Get device breakdown from user_agent
+  // Get device breakdown from device_type column (or fallback to user_agent parsing)
   const getDeviceBreakdown = (): DeviceBreakdown[] => {
     const devices: Record<string, number> = { Mobile: 0, Desktop: 0, Tablet: 0 };
 
     stats.forEach(s => {
-      const ua = (s.user_agent || '').toLowerCase();
-      if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone')) {
-        devices.Mobile++;
-      } else if (ua.includes('tablet') || ua.includes('ipad')) {
-        devices.Tablet++;
+      // Use device_type if available, otherwise parse user_agent
+      if (s.device_type) {
+        const device = s.device_type;
+        if (devices[device] !== undefined) {
+          devices[device]++;
+        } else {
+          devices.Desktop++;
+        }
       } else {
-        devices.Desktop++;
+        const ua = (s.user_agent || '').toLowerCase();
+        if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone')) {
+          devices.Mobile++;
+        } else if (ua.includes('tablet') || ua.includes('ipad')) {
+          devices.Tablet++;
+        } else {
+          devices.Desktop++;
+        }
       }
     });
 
