@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Campaign } from '@/types/campaign';
 import { useCampaigns } from '@/hooks/useCampaigns';
 import { useAuth } from '@/hooks/useAuth';
+import { useDownloadStats } from '@/hooks/useDownloadStats';
 import { StatsCard } from './StatsCard';
 import { CampaignCard } from './CampaignCard';
 import { CreateCampaignModal } from './CreateCampaignModal';
@@ -34,6 +35,7 @@ export const Dashboard = () => {
   
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const { totalDownloads, uniqueVisitors } = useDownloadStats();
   
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -41,7 +43,7 @@ export const Dashboard = () => {
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
 
-  const stats = getTotalStats();
+  const campaignStats = getTotalStats();
 
   const handleSignOut = async () => {
     await signOut();
@@ -175,14 +177,14 @@ export const Dashboard = () => {
             />
             <StatsCard
               icon={<Eye className="w-5 h-5" />}
-              label="Total Views"
-              value={stats.views}
+              label="Visiteurs Uniques"
+              value={uniqueVisitors}
               trend="+12%"
             />
             <StatsCard
               icon={<Download className="w-5 h-5" />}
               label="Total Downloads"
-              value={stats.downloads}
+              value={totalDownloads}
               trend="+8%"
             />
           </div>
