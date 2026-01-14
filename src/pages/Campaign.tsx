@@ -9,6 +9,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Helmet } from 'react-helmet-async';
 import { trackDownload } from '@/utils/trackDownload';
+import { trackPageView } from '@/utils/trackPageView';
 
 const mapDbToCampaign = (db: {
   id: string;
@@ -75,6 +76,13 @@ const CampaignPage = () => {
 
     fetchCampaign();
   }, [id]);
+
+  // Track time on page
+  useEffect(() => {
+    if (!id || !campaign) return;
+    const cleanup = trackPageView({ campaignId: id });
+    return cleanup;
+  }, [id, campaign]);
 
   const handleDownload = async (mediaType: 'photo' | 'pdf' = 'photo') => {
     if (!campaign) return;

@@ -94,8 +94,12 @@ export type Database = {
           id: string
           media_type: string
           os: string | null
+          referrer: string | null
           session_id: string | null
           user_agent: string | null
+          utm_campaign: string | null
+          utm_medium: string | null
+          utm_source: string | null
         }
         Insert: {
           browser?: string | null
@@ -108,8 +112,12 @@ export type Database = {
           id?: string
           media_type: string
           os?: string | null
+          referrer?: string | null
           session_id?: string | null
           user_agent?: string | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
         }
         Update: {
           browser?: string | null
@@ -122,8 +130,12 @@ export type Database = {
           id?: string
           media_type?: string
           os?: string | null
+          referrer?: string | null
           session_id?: string | null
           user_agent?: string | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
         }
         Relationships: [
           {
@@ -206,6 +218,51 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      page_views: {
+        Row: {
+          campaign_id: string | null
+          created_at: string | null
+          event_id: string | null
+          id: string
+          page_path: string
+          session_id: string | null
+          time_on_page: number | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          created_at?: string | null
+          event_id?: string | null
+          id?: string
+          page_path: string
+          session_id?: string | null
+          time_on_page?: number | null
+        }
+        Update: {
+          campaign_id?: string | null
+          created_at?: string | null
+          event_id?: string | null
+          id?: string
+          page_path?: string
+          session_id?: string | null
+          time_on_page?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "page_views_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "page_views_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
             referencedColumns: ["id"]
           },
         ]

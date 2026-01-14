@@ -10,6 +10,7 @@ import { ArrowLeft, Loader2, Sparkles, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Helmet } from 'react-helmet-async';
 import { trackDownload } from '@/utils/trackDownload';
+import { trackPageView } from '@/utils/trackPageView';
 
 const mapDbToCampaign = (db: {
   id: string;
@@ -94,6 +95,13 @@ const CampaignBySlugPage = () => {
 
     fetchCampaign();
   }, [slug]);
+
+  // Track time on page
+  useEffect(() => {
+    if (!campaign) return;
+    const cleanup = trackPageView({ campaignId: campaign.id });
+    return cleanup;
+  }, [campaign]);
 
   const handleDownload = async (mediaType: 'photo' | 'pdf' = 'photo') => {
     if (!campaign) return;

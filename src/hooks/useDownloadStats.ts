@@ -15,6 +15,27 @@ interface DownloadStat {
   os: string | null;
   country: string | null;
   city: string | null;
+  referrer: string | null;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+}
+
+interface PageView {
+  id: string;
+  campaign_id: string | null;
+  event_id: string | null;
+  session_id: string | null;
+  page_path: string;
+  time_on_page: number | null;
+  created_at: string;
+}
+
+interface CampaignData {
+  id: string;
+  title: string;
+  views: number;
+  downloads: number;
 }
 
 interface DailyTrend {
@@ -35,6 +56,30 @@ interface DeviceBreakdown {
   percentage: number;
 }
 
+interface BrowserBreakdown {
+  browser: string;
+  count: number;
+  percentage: number;
+}
+
+interface OSBreakdown {
+  os: string;
+  count: number;
+  percentage: number;
+}
+
+interface LocationBreakdown {
+  location: string;
+  count: number;
+  percentage: number;
+}
+
+interface ReferrerBreakdown {
+  source: string;
+  count: number;
+  percentage: number;
+}
+
 interface HourlyDistribution {
   hour: number;
   downloads: number;
@@ -44,44 +89,91 @@ interface CampaignStats {
   campaignId: string;
   campaignTitle: string;
   downloads: number;
+  views: number;
+  conversionRate: number;
   trend: 'up' | 'down' | 'stable';
 }
 
-export const useDownloadStats = () => {
+interface EventStats {
+  eventId: string;
+  eventTitle: string;
+  downloads: number;
+  trend: 'up' | 'down' | 'stable';
+}
+
+interface PerformanceComparison {
+  currentDownloads: number;
+  previousDownloads: number;
+  changePercent: number;
+  currentVisitors: number;
+  previousVisitors: number;
+  visitorsChangePercent: number;
+}
+
+export const useDownloadStats = (periodDays: number = 14) => {
   const { user } = useAuth();
 
   // Fetch all download stats for user's campaigns
-  const { data: rawStats, isLoading, refetch } = useQuery({
-    queryKey: ['download-stats', user?.id],
-    queryFn: async (): Promise<{ stats: DownloadStat[]; campaigns: { id: string; title: string }[] }> => {
-      if (!user?.id) return { stats: [], campaigns: [] };
+  const { data: rawData, isLoading, refetch } = useQuery({
+    queryKey: ['download-stats', user?.id, periodDays],
+    queryFn: async (): Promise<{ 
+      stats: DownloadStat[]; 
+      campaigns: CampaignData[];
+      pageViews: PageView[];
+      events: { id: string; title: string }[];
+    }> => {
+      if (!user?.id) return { stats: [], campaigns: [], pageViews: [], events: [] };
       
-      // First get user's campaigns
-      const { data: campaigns } = await supabase
-        .from('campaigns')
-        .select('id, title')
-        .eq('user_id', user.id);
+      // Fetch campaigns, events, and their stats in parallel
+      const [campaignsRes, eventsRes] = await Promise.all([
+        supabase
+          .from('campaigns')
+          .select('id, title, views, downloads')
+          .eq('user_id', user.id),
+        supabase
+          .from('events')
+          .select('id, title')
+          .eq('user_id', user.id),
+      ]);
 
-      if (!campaigns || campaigns.length === 0) return { stats: [], campaigns: [] };
+      const campaigns = campaignsRes.data || [];
+      const events = eventsRes.data || [];
+      
+      if (campaigns.length === 0 && events.length === 0) {
+        return { stats: [], campaigns: [], pageViews: [], events: [] };
+      }
 
       const campaignIds = campaigns.map(c => c.id);
+      const eventIds = events.map(e => e.id);
 
-      // Get download stats for these campaigns
-      const { data: stats, error } = await supabase
-        .from('download_stats')
-        .select('*')
-        .in('campaign_id', campaignIds)
-        .order('created_at', { ascending: false });
+      // Fetch download stats and page views in parallel
+      const [statsRes, pageViewsRes] = await Promise.all([
+        supabase
+          .from('download_stats')
+          .select('*')
+          .or(`campaign_id.in.(${campaignIds.join(',')}),event_id.in.(${eventIds.join(',')})`)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('page_views')
+          .select('*')
+          .or(`campaign_id.in.(${campaignIds.join(',')}),event_id.in.(${eventIds.join(',')})`)
+          .order('created_at', { ascending: false }),
+      ]);
 
-      if (error) throw error;
-
-      return { stats: (stats || []) as DownloadStat[], campaigns };
+      return { 
+        stats: (statsRes.data || []) as DownloadStat[], 
+        campaigns,
+        pageViews: (pageViewsRes.data || []) as PageView[],
+        events,
+      };
     },
     enabled: !!user?.id,
   });
 
-  const stats: DownloadStat[] = rawStats?.stats || [];
-  const campaigns = rawStats?.campaigns || [];
+  const stats: DownloadStat[] = rawData?.stats || [];
+  const campaigns = rawData?.campaigns || [];
+  const pageViews: PageView[] = rawData?.pageViews || [];
+  const events = rawData?.events || [];
 
   // Calculate total downloads
   const totalDownloads = stats.length;
@@ -98,6 +190,17 @@ export const useDownloadStats = () => {
   };
   const dailyAverage = Math.round(totalDownloads / getDaysInRange());
 
+  // Calculate total views from campaigns
+  const totalViews = campaigns.reduce((sum, c) => sum + (c.views || 0), 0);
+
+  // Calculate conversion rate
+  const conversionRate = totalViews > 0 ? Math.round((totalDownloads / totalViews) * 100) : 0;
+
+  // Calculate average time on page
+  const avgTimeOnPage = pageViews.length > 0
+    ? Math.round(pageViews.reduce((sum, pv) => sum + (pv.time_on_page || 0), 0) / pageViews.length)
+    : 0;
+
   // Get most popular media type
   const mediaTypeCounts: Record<string, number> = stats.reduce((acc, s) => {
     acc[s.media_type] = (acc[s.media_type] || 0) + 1;
@@ -107,12 +210,12 @@ export const useDownloadStats = () => {
   const popularMediaType = Object.entries(mediaTypeCounts)
     .sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A';
 
-  // Calculate daily trends (last 14 days)
+  // Calculate daily trends
   const getDailyTrends = (): DailyTrend[] => {
-    const last14Days: DailyTrend[] = [];
+    const trends: DailyTrend[] = [];
     const today = new Date();
 
-    for (let i = 13; i >= 0; i--) {
+    for (let i = periodDays - 1; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
       const dateStr = date.toISOString().split('T')[0];
@@ -123,14 +226,14 @@ export const useDownloadStats = () => {
         return statDate === dateStr;
       });
 
-      last14Days.push({
+      trends.push({
         date: displayDate,
         downloads: dayStats.length,
         uniqueVisitors: new Set(dayStats.filter(s => s.session_id).map(s => s.session_id)).size,
       });
     }
 
-    return last14Days;
+    return trends;
   };
 
   // Get media type distribution
@@ -145,12 +248,11 @@ export const useDownloadStats = () => {
     }));
   };
 
-  // Get device breakdown from device_type column (or fallback to user_agent parsing)
+  // Get device breakdown
   const getDeviceBreakdown = (): DeviceBreakdown[] => {
     const devices: Record<string, number> = { Mobile: 0, Desktop: 0, Tablet: 0 };
 
     stats.forEach(s => {
-      // Use device_type if available, otherwise parse user_agent
       if (s.device_type) {
         const device = s.device_type;
         if (devices[device] !== undefined) {
@@ -179,10 +281,117 @@ export const useDownloadStats = () => {
         device,
         count,
         percentage: Math.round((count / total) * 100),
-      }));
+      }))
+      .sort((a, b) => b.count - a.count);
   };
 
-  // Get hourly distribution (peak hours)
+  // Get browser breakdown
+  const getBrowserBreakdown = (): BrowserBreakdown[] => {
+    const browsers: Record<string, number> = {};
+
+    stats.forEach(s => {
+      const browser = s.browser || 'Unknown';
+      browsers[browser] = (browsers[browser] || 0) + 1;
+    });
+
+    const total = stats.length;
+    if (total === 0) return [];
+
+    return Object.entries(browsers)
+      .map(([browser, count]) => ({
+        browser,
+        count,
+        percentage: Math.round((count / total) * 100),
+      }))
+      .sort((a, b) => b.count - a.count);
+  };
+
+  // Get OS breakdown
+  const getOSBreakdown = (): OSBreakdown[] => {
+    const osMap: Record<string, number> = {};
+
+    stats.forEach(s => {
+      const os = s.os || 'Unknown';
+      osMap[os] = (osMap[os] || 0) + 1;
+    });
+
+    const total = stats.length;
+    if (total === 0) return [];
+
+    return Object.entries(osMap)
+      .map(([os, count]) => ({
+        os,
+        count,
+        percentage: Math.round((count / total) * 100),
+      }))
+      .sort((a, b) => b.count - a.count);
+  };
+
+  // Get location breakdown
+  const getLocationBreakdown = (): LocationBreakdown[] => {
+    const locations: Record<string, number> = {};
+
+    stats.forEach(s => {
+      const location = s.country || 'Unknown';
+      locations[location] = (locations[location] || 0) + 1;
+    });
+
+    const total = stats.length;
+    if (total === 0) return [];
+
+    return Object.entries(locations)
+      .map(([location, count]) => ({
+        location,
+        count,
+        percentage: Math.round((count / total) * 100),
+      }))
+      .sort((a, b) => b.count - a.count);
+  };
+
+  // Get referrer breakdown
+  const getReferrerBreakdown = (): ReferrerBreakdown[] => {
+    const referrers: Record<string, number> = {};
+
+    stats.forEach(s => {
+      let source = s.referrer || 'Direct';
+      
+      // Categorize common sources
+      if (s.utm_source) {
+        source = s.utm_source;
+      } else if (source.includes('google')) {
+        source = 'Google';
+      } else if (source.includes('facebook') || source.includes('fb.')) {
+        source = 'Facebook';
+      } else if (source.includes('instagram')) {
+        source = 'Instagram';
+      } else if (source.includes('twitter') || source.includes('t.co')) {
+        source = 'Twitter/X';
+      } else if (source.includes('linkedin')) {
+        source = 'LinkedIn';
+      } else if (source.includes('whatsapp')) {
+        source = 'WhatsApp';
+      } else if (source === 'Direct') {
+        source = 'Direct';
+      } else {
+        source = 'Autre';
+      }
+      
+      referrers[source] = (referrers[source] || 0) + 1;
+    });
+
+    const total = stats.length;
+    if (total === 0) return [];
+
+    return Object.entries(referrers)
+      .map(([source, count]) => ({
+        source,
+        count,
+        percentage: Math.round((count / total) * 100),
+      }))
+      .sort((a, b) => b.count - a.count);
+  };
+
+  // Get hourly distribution
   const getHourlyDistribution = (): HourlyDistribution[] => {
     const hours: Record<number, number> = {};
     
@@ -201,36 +410,122 @@ export const useDownloadStats = () => {
     }));
   };
 
-  // Get campaign stats with trends
+  // Get campaign stats with conversion rates
   const getCampaignStats = (): CampaignStats[] => {
-    const campaignStats: Record<string, { total: number; recent: number; title: string }> = {};
-
-    campaigns.forEach(c => {
-      campaignStats[c.id] = { total: 0, recent: 0, title: c.title };
-    });
-
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    stats.forEach(s => {
-      if (s.campaign_id && campaignStats[s.campaign_id]) {
-        campaignStats[s.campaign_id].total++;
-        
-        const statDate = new Date(s.created_at || '');
-        if (statDate >= sevenDaysAgo) {
-          campaignStats[s.campaign_id].recent++;
-        }
-      }
-    });
+    return campaigns.map(c => {
+      const campaignDownloads = stats.filter(s => s.campaign_id === c.id);
+      const recentDownloads = campaignDownloads.filter(s => 
+        new Date(s.created_at || '') >= sevenDaysAgo
+      ).length;
+      
+      const total = campaignDownloads.length;
+      const trend: 'up' | 'down' | 'stable' = 
+        recentDownloads > total / 2 ? 'up' : 
+        recentDownloads < total / 4 ? 'down' : 'stable';
 
-    return Object.entries(campaignStats)
-      .map(([id, data]) => ({
-        campaignId: id,
-        campaignTitle: data.title,
-        downloads: data.total,
-        trend: data.recent > data.total / 2 ? 'up' : data.recent < data.total / 4 ? 'down' : 'stable' as 'up' | 'down' | 'stable',
-      }))
-      .sort((a, b) => b.downloads - a.downloads);
+      return {
+        campaignId: c.id,
+        campaignTitle: c.title,
+        downloads: total,
+        views: c.views || 0,
+        conversionRate: c.views > 0 ? Math.round((total / c.views) * 100) : 0,
+        trend,
+      };
+    }).sort((a, b) => b.downloads - a.downloads);
+  };
+
+  // Get event stats
+  const getEventStats = (): EventStats[] => {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    return events.map(e => {
+      const eventDownloads = stats.filter(s => s.event_id === e.id);
+      const recentDownloads = eventDownloads.filter(s => 
+        new Date(s.created_at || '') >= sevenDaysAgo
+      ).length;
+      
+      const total = eventDownloads.length;
+      const trend: 'up' | 'down' | 'stable' = 
+        recentDownloads > total / 2 ? 'up' : 
+        recentDownloads < total / 4 ? 'down' : 'stable';
+
+      return {
+        eventId: e.id,
+        eventTitle: e.title,
+        downloads: total,
+        trend,
+      };
+    }).sort((a, b) => b.downloads - a.downloads);
+  };
+
+  // Get performance comparison between current and previous period
+  const getPerformanceComparison = (days: number = 7): PerformanceComparison => {
+    const now = new Date();
+    const currentPeriodStart = new Date(now);
+    currentPeriodStart.setDate(currentPeriodStart.getDate() - days);
+    
+    const previousPeriodStart = new Date(currentPeriodStart);
+    previousPeriodStart.setDate(previousPeriodStart.getDate() - days);
+    
+    const currentStats = stats.filter(s => 
+      new Date(s.created_at || '') >= currentPeriodStart
+    );
+    
+    const previousStats = stats.filter(s => {
+      const date = new Date(s.created_at || '');
+      return date >= previousPeriodStart && date < currentPeriodStart;
+    });
+    
+    const currentDownloads = currentStats.length;
+    const previousDownloads = previousStats.length;
+    const changePercent = previousDownloads > 0 
+      ? Math.round(((currentDownloads - previousDownloads) / previousDownloads) * 100)
+      : currentDownloads > 0 ? 100 : 0;
+    
+    const currentVisitors = new Set(currentStats.filter(s => s.session_id).map(s => s.session_id)).size;
+    const previousVisitors = new Set(previousStats.filter(s => s.session_id).map(s => s.session_id)).size;
+    const visitorsChangePercent = previousVisitors > 0
+      ? Math.round(((currentVisitors - previousVisitors) / previousVisitors) * 100)
+      : currentVisitors > 0 ? 100 : 0;
+      
+    return { 
+      currentDownloads, 
+      previousDownloads, 
+      changePercent,
+      currentVisitors,
+      previousVisitors,
+      visitorsChangePercent,
+    };
+  };
+
+  // Get summary for export
+  const getExportSummary = () => {
+    const deviceBreakdown = getDeviceBreakdown();
+    const browserBreakdown = getBrowserBreakdown();
+    const locationBreakdown = getLocationBreakdown();
+    
+    return {
+      totalDownloads,
+      uniqueVisitors,
+      dailyAverage,
+      conversionRate,
+      avgTimeOnPage,
+      topCountry: locationBreakdown[0]?.location || 'N/A',
+      topBrowser: browserBreakdown[0]?.browser || 'N/A',
+      topDevice: deviceBreakdown[0]?.device || 'N/A',
+    };
+  };
+
+  // Get campaign titles map for export
+  const getCampaignTitles = (): Record<string, string> => {
+    return campaigns.reduce((acc, c) => {
+      acc[c.id] = c.title;
+      return acc;
+    }, {} as Record<string, string>);
   };
 
   return {
@@ -241,14 +536,27 @@ export const useDownloadStats = () => {
     uniqueVisitors,
     dailyAverage,
     popularMediaType,
-    // Detailed data
+    totalViews,
+    conversionRate,
+    avgTimeOnPage,
+    // Detailed data functions
     getDailyTrends,
     getMediaTypeDistribution,
     getDeviceBreakdown,
+    getBrowserBreakdown,
+    getOSBreakdown,
+    getLocationBreakdown,
+    getReferrerBreakdown,
     getHourlyDistribution,
     getCampaignStats,
+    getEventStats,
+    getPerformanceComparison,
+    // Export helpers
+    getExportSummary,
+    getCampaignTitles,
     // Raw data
     rawStats: stats,
+    pageViews,
   };
 };
 
@@ -258,6 +566,7 @@ const formatMediaType = (type: string): string => {
     photo: 'Photo',
     video: 'Vidéo',
     document: 'Document',
+    pdf: 'PDF',
     image: 'Image',
   };
   return labels[type.toLowerCase()] || type;
