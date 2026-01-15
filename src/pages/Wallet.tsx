@@ -14,7 +14,7 @@ export default function WalletPage() {
   return (
     <>
       <Helmet>
-        <title>Mon Wallet | FameFlow</title>
+        <title>Mon Wallet | Jyserai</title>
         <meta name="description" content="Gérez vos tickets d'événements" />
       </Helmet>
 

@@ -101,7 +101,7 @@ export default function AdminEventsPage() {
   return (
     <>
       <Helmet>
-        <title>Tableau de bord Promoteur | FameFlow</title>
+        <title>Tableau de bord Promoteur | Jyserai</title>
       </Helmet>
 
       <Header />

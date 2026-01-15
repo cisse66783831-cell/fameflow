@@ -53,13 +53,13 @@ export const Dashboard = () => {
 
   const handleLoadDemos = () => {
     loadDemoTemplates();
-    toast.success('Demo templates loaded!');
+    toast.success('Templates de démo chargés !');
   };
 
   const handleDeleteCampaign = (id: string) => {
-    if (confirm('Are you sure you want to delete this campaign?')) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer cette campagne ?')) {
       deleteCampaign(id);
-      toast.success('Campaign deleted');
+      toast.success('Campagne supprimée');
     }
   };
 
@@ -139,7 +139,7 @@ export const Dashboard = () => {
             <div className="p-2 rounded-xl gradient-primary">
               <Zap className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="font-display font-bold text-xl">FrameFlow</span>
+            <span className="font-display font-bold text-xl">Jyserai</span>
           </div>
           
           <div className="flex items-center gap-3">
@@ -153,8 +153,8 @@ export const Dashboard = () => {
             </Button>
             <Button variant="gradient" onClick={() => setShowCreateModal(true)}>
               <Plus className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">New Campaign</span>
-              <span className="sm:hidden">New</span>
+              <span className="hidden sm:inline">Nouvelle campagne</span>
+              <span className="sm:hidden">Nouveau</span>
             </Button>
             <Button variant="ghost" size="icon" onClick={handleSignOut}>
               <LogOut className="w-4 h-4" />
@@ -167,12 +167,12 @@ export const Dashboard = () => {
         {/* Stats Section */}
         <section className="mb-10">
           <h2 className="font-display font-semibold text-lg text-muted-foreground mb-4">
-            Overview
+            Vue d'ensemble
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <StatsCard
               icon={<Layers className="w-5 h-5" />}
-              label="Total Campaigns"
+              label="Campagnes"
               value={campaigns.length}
             />
             <StatsCard
@@ -183,7 +183,7 @@ export const Dashboard = () => {
             />
             <StatsCard
               icon={<Download className="w-5 h-5" />}
-              label="Total Downloads"
+              label="Téléchargements"
               value={totalDownloads}
               trend="+8%"
             />
@@ -195,7 +195,7 @@ export const Dashboard = () => {
           <TabsList className="glass-card">
             <TabsTrigger value="campaigns" className="gap-2">
               <LayoutGrid className="w-4 h-4" />
-              Campaigns
+              Campagnes
             </TabsTrigger>
             <TabsTrigger value="analytics" className="gap-2">
               <BarChart3 className="w-4 h-4" />
@@ -212,13 +212,13 @@ export const Dashboard = () => {
             <section>
               <div className="flex items-center justify-between mb-6">
                 <h2 className="font-display font-semibold text-lg text-foreground">
-                  Your Campaigns
+                  Vos campagnes
                 </h2>
                 
                 {campaigns.length === 0 && (
                   <Button variant="outline" onClick={handleLoadDemos}>
                     <Beaker className="w-4 h-4 mr-2" />
-                    Load Demo Templates
+                    Charger les démos
                   </Button>
                 )}
               </div>
@@ -235,19 +235,19 @@ export const Dashboard = () => {
                     <Sparkles className="w-8 h-8 text-primary" />
                   </div>
                   <h3 className="font-display font-semibold text-xl mb-2">
-                    No campaigns yet
+                    Pas encore de campagnes
                   </h3>
                   <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
-                    Create your first viral campaign or load demo templates to explore the platform.
+                    Créez votre première campagne virale ou chargez les templates de démo pour explorer la plateforme.
                   </p>
                   <div className="flex flex-col sm:flex-row gap-3 justify-center">
                     <Button variant="gradient" onClick={() => setShowCreateModal(true)}>
                       <Plus className="w-4 h-4 mr-2" />
-                      Create Campaign
+                      Créer une campagne
                     </Button>
                     <Button variant="outline" onClick={handleLoadDemos}>
                       <Beaker className="w-4 h-4 mr-2" />
-                      Load Demos
+                      Charger les démos
                     </Button>
                   </div>
                 </div>

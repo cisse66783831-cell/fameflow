@@ -123,7 +123,7 @@ export default function Auth() {
             <div className="p-2 rounded-xl bg-gradient-to-br from-primary to-accent">
               <Sparkles className="w-5 h-5 text-white" />
             </div>
-            <span className="text-xl font-bold font-display">FrameFlow</span>
+            <span className="text-xl font-bold font-display">Jyserai</span>
           </div>
 
           <h2 className="text-2xl font-bold font-display mb-2">
