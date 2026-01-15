@@ -1023,7 +1023,7 @@ export const VideoRecorder = ({
           canvasStream.addTrack(track);
         });
         
-        audioBufferSource.start(0);
+        // Ne pas démarrer l'audio ici - sera synchronisé avec video.play()
       } catch (audioError) {
         console.warn('Could not extract audio:', audioError);
       }
@@ -1049,6 +1049,12 @@ export const VideoRecorder = ({
       
       mediaRecorder.start(100);
       await video.play();
+      
+      // Attendre la première frame puis démarrer l'audio synchronisé
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      if (audioBufferSource) {
+        audioBufferSource.start(0);
+      }
       
       const progressInterval = setInterval(() => {
         if (video.duration > 0) {
