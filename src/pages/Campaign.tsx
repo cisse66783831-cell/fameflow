@@ -114,15 +114,15 @@ const CampaignPage = () => {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
         <h1 className="text-2xl font-display font-bold text-foreground">
-          {error || 'Campaign not found'}
+          {error || 'Campagne introuvable'}
         </h1>
         <p className="text-muted-foreground">
-          This campaign may have been removed or doesn't exist.
+          Cette campagne a peut-être été supprimée ou n'existe pas.
         </p>
         <Link to="/">
           <Button variant="gradient">
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Go to Homepage
+            Retour à l'accueil
           </Button>
         </Link>
       </div>
@@ -132,10 +132,10 @@ const CampaignPage = () => {
   return (
     <>
       <Helmet>
-        <title>{campaign.title} | FrameFlow</title>
-        <meta name="description" content={campaign.description || `Use ${campaign.title} template to create your personalized content.`} />
+        <title>{campaign.title} | Jyserai</title>
+        <meta name="description" content={campaign.description || `Utilisez le template "${campaign.title}" pour créer votre contenu personnalisé.`} />
         <meta property="og:title" content={campaign.title} />
-        <meta property="og:description" content={campaign.description || 'Create personalized content with FrameFlow'} />
+        <meta property="og:description" content={campaign.description || 'Créez votre contenu personnalisé avec Jyserai'} />
         <meta property="og:image" content={campaign.frameImage} />
       </Helmet>
       
@@ -145,14 +145,14 @@ const CampaignPage = () => {
           <div className="container mx-auto px-4 py-4 flex items-center justify-between">
             <Link to="/" className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
-                <span className="text-white font-bold text-sm">FF</span>
+                <span className="text-white font-bold text-sm">JY</span>
               </div>
-              <span className="font-display font-bold text-lg">FrameFlow</span>
+              <span className="font-display font-bold text-lg">Jyserai</span>
             </Link>
             
             <Link to="/auth">
               <Button variant="outline" size="sm">
-                Create Your Own
+                Créer le vôtre
               </Button>
             </Link>
           </div>
@@ -178,11 +178,11 @@ const CampaignPage = () => {
         <footer className="border-t border-border py-6 mt-12">
           <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
             <p>
-              Powered by{' '}
+              Propulsé par{' '}
               <Link to="/" className="text-primary hover:underline">
-                FrameFlow
+                Jyserai
               </Link>
-              {' '}— Create your own campaigns for free
+              {' '}— Créez vos campagnes gratuitement
             </p>
           </div>
         </footer>

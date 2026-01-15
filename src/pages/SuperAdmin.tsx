@@ -164,7 +164,7 @@ export default function SuperAdminPage() {
               <div className="p-2 rounded-lg bg-primary/10">
                 <ShieldCheck className="w-6 h-6 text-primary" />
               </div>
-              <h1 className="text-3xl font-bold font-display">Super Admin Dashboard</h1>
+              <h1 className="text-3xl font-bold font-display">Tableau de bord Super Admin</h1>
             </div>
             <p className="text-muted-foreground">Vue d'ensemble de toute la plateforme Jyserai</p>
           </div>

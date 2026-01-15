@@ -34,7 +34,7 @@ export default function ScannerPage() {
   return (
     <>
       <Helmet>
-        <title>Scanner de Tickets | FameFlow</title>
+        <title>Scanner de Tickets | Jyserai</title>
         <meta name="description" content="Scannez et validez les tickets d'événements" />
       </Helmet>
 

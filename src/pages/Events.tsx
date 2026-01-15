@@ -31,7 +31,7 @@ export default function EventsPage() {
   return (
     <>
       <Helmet>
-        <title>Événements | FameFlow</title>
+        <title>Événements | Jyserai</title>
         <meta name="description" content="Découvrez les événements à venir et créez votre visuel J'y serai" />
       </Helmet>
 

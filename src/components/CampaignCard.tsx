@@ -30,10 +30,10 @@ export const CampaignCard = ({ campaign, onSelect, onDelete, onEdit, index }: Ca
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
-      toast.success('Link copied!');
+      toast.success('Lien copié !');
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error('Failed to copy link');
+      toast.error('Échec de la copie du lien');
     }
   };
 
@@ -43,7 +43,7 @@ export const CampaignCard = ({ campaign, onSelect, onDelete, onEdit, index }: Ca
       try {
         await navigator.share({
           title: campaign.title,
-          text: campaign.description || `Check out ${campaign.title} on FrameFlow`,
+          text: campaign.description || `Découvrez ${campaign.title} sur Jyserai`,
           url: shareUrl,
         });
       } catch {
@@ -89,7 +89,7 @@ export const CampaignCard = ({ campaign, onSelect, onDelete, onEdit, index }: Ca
             className="backdrop-blur-md"
           >
             <Play className="w-4 h-4 mr-2" />
-            Use Template
+            Utiliser
           </Button>
         </div>
 
@@ -102,7 +102,7 @@ export const CampaignCard = ({ campaign, onSelect, onDelete, onEdit, index }: Ca
               ? "bg-chart-1/90 text-white"
               : "bg-accent/90 text-accent-foreground"
         )}>
-          {campaign.type === 'photo' ? 'Photo Frame' : campaign.type === 'video_filter' ? 'Filtre Vidéo' : 'Document'}
+          {campaign.type === 'photo' ? 'Cadre Photo' : campaign.type === 'video_filter' ? 'Filtre Vidéo' : 'Document'}
         </div>
 
         {campaign.isDemo && (

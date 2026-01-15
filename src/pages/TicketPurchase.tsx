@@ -51,7 +51,7 @@ export default function TicketPurchasePage() {
   return (
     <>
       <Helmet>
-        <title>Acheter un ticket - {event.title} | FameFlow</title>
+        <title>Acheter un ticket - {event.title} | Jyserai</title>
         <meta name="description" content={`Achetez votre ticket pour ${event.title}`} />
       </Helmet>
 
