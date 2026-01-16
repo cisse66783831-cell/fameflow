@@ -1,8 +1,9 @@
 import { Button } from '@/components/ui/button';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useUserRoles } from '@/hooks/useUserRoles';
 import { 
-  Sparkles, LogOut, User, Calendar, Ticket, ScanLine, LayoutDashboard, Plus, Home, Video
+  Sparkles, LogOut, User, Calendar, Ticket, ScanLine, LayoutDashboard, Plus, Home, ShieldCheck
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -16,6 +17,7 @@ export function Header() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signOut } = useAuth();
+  const { isSuperAdmin } = useUserRoles();
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -81,6 +83,19 @@ export function Header() {
                 <span className="hidden lg:inline">Scanner</span>
               </Button>
 
+              {/* Super Admin Link - only for super admins */}
+              {isSuperAdmin() && (
+                <Button 
+                  variant={isActive('/super-admin') ? 'secondary' : 'ghost'}
+                  size="sm"
+                  onClick={() => navigate('/super-admin')}
+                  className="hidden md:flex text-amber-500 hover:text-amber-400"
+                >
+                  <ShieldCheck className="w-4 h-4 mr-1" />
+                  <span className="hidden lg:inline">Admin</span>
+                </Button>
+              )}
+
               {/* Wallet */}
               <Button 
                 variant={isActive('/wallet') ? 'secondary' : 'ghost'}
@@ -120,6 +135,12 @@ export function Header() {
                     <ScanLine className="w-4 h-4 mr-2" />
                     Scanner
                   </DropdownMenuItem>
+                  {isSuperAdmin() && (
+                    <DropdownMenuItem onClick={() => navigate('/super-admin')} className="text-amber-500">
+                      <ShieldCheck className="w-4 h-4 mr-2" />
+                      Super Admin
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 
                     onClick={() => signOut()} 
