@@ -1,4 +1,4 @@
-export type AppRole = 'admin' | 'promoter' | 'staff' | 'scanner' | 'user';
+export type AppRole = 'admin' | 'promoter' | 'staff' | 'scanner' | 'user' | 'super_admin';
 export type TicketStatus = 'pending' | 'paid' | 'used' | 'cancelled' | 'expired';
 export type PaymentMethod = 'orange_money' | 'mtn_money' | 'moov_money' | 'wave' | 'card' | 'free';
 

@@ -47,6 +47,7 @@ export function useUserRoles() {
   const isPromoter = () => hasRole('promoter');
   const isStaff = (eventId?: string) => hasRole('staff', eventId) || isAdmin() || isPromoter();
   const isScanner = (eventId?: string) => hasRole('scanner', eventId) || isStaff(eventId);
+  const isSuperAdmin = () => hasRole('super_admin');
 
   return {
     roles,
@@ -56,6 +57,7 @@ export function useUserRoles() {
     isPromoter,
     isStaff,
     isScanner,
+    isSuperAdmin,
     refetch: fetchRoles,
   };
 }
