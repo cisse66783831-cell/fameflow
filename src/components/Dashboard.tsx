@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Campaign } from '@/types/campaign';
 import { useCampaigns } from '@/hooks/useCampaigns';
 import { useAuth } from '@/hooks/useAuth';
+import { useUserRoles } from '@/hooks/useUserRoles';
 import { useDownloadStats } from '@/hooks/useDownloadStats';
 import { StatsCard } from './StatsCard';
 import { CampaignCard } from './CampaignCard';
@@ -16,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Plus, Eye, Download, Layers, Beaker, 
-  ArrowLeft, Zap, Sparkles, LogOut, BarChart3, LayoutGrid, Users, Activity, Calendar
+  ArrowLeft, Zap, Sparkles, LogOut, BarChart3, LayoutGrid, Users, Activity, Calendar, ShieldCheck
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -34,6 +35,7 @@ export const Dashboard = () => {
   } = useCampaigns();
   
   const { user, signOut } = useAuth();
+  const { isSuperAdmin } = useUserRoles();
   const navigate = useNavigate();
   const { totalDownloads, uniqueVisitors } = useDownloadStats();
   
@@ -146,6 +148,19 @@ export const Dashboard = () => {
             <span className="text-sm text-muted-foreground hidden sm:block">
               {user?.email}
             </span>
+
+            {isSuperAdmin() && (
+              <Button
+                variant="outline"
+                onClick={() => navigate('/super-admin')}
+                className="border-warning text-warning hover:bg-warning/10"
+              >
+                <ShieldCheck className="w-4 h-4 mr-2" />
+                <span className="hidden sm:inline">Admin</span>
+                <span className="sm:hidden">Admin</span>
+              </Button>
+            )}
+
             <Button variant="outline" onClick={() => setShowEventModal(true)}>
               <Calendar className="w-4 h-4 mr-2" />
               <span className="hidden sm:inline">Créer un événement</span>
