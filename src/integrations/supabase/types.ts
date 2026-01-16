@@ -525,7 +525,13 @@ export type Database = {
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "admin" | "promoter" | "staff" | "scanner" | "user"
+      app_role:
+        | "admin"
+        | "promoter"
+        | "staff"
+        | "scanner"
+        | "user"
+        | "super_admin"
       payment_method:
         | "orange_money"
         | "mtn_money"
@@ -661,7 +667,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "promoter", "staff", "scanner", "user"],
+      app_role: [
+        "admin",
+        "promoter",
+        "staff",
+        "scanner",
+        "user",
+        "super_admin",
+      ],
       payment_method: [
         "orange_money",
         "mtn_money",
