@@ -26,10 +26,11 @@ interface PlatformStats {
   totalEvents: number;
   totalTickets: number;
   totalCampaigns: number;
-  totalFilters: number;
+  totalVisuals: number;
   totalRevenue: number;
   totalViews: number;
   totalDownloads: number;
+  totalPageViews: number;
 }
 
 interface DailyStats {
@@ -125,7 +126,8 @@ export default function SuperAdminPage() {
       { count: eventsCount },
       { count: ticketsCount },
       { count: campaignsCount },
-      { count: filtersCount },
+      { count: visualsCount },
+      { count: pageViewsCount },
       { data: campaignStats },
       { data: completedTx }
     ] = await Promise.all([
@@ -133,24 +135,26 @@ export default function SuperAdminPage() {
       supabase.from('events').select('*', { count: 'exact', head: true }),
       supabase.from('tickets').select('*', { count: 'exact', head: true }),
       supabase.from('campaigns').select('*', { count: 'exact', head: true }),
-      (supabase as any).from('video_filters').select('*', { count: 'exact', head: true }),
+      supabase.from('public_visuals').select('*', { count: 'exact', head: true }),
+      supabase.from('page_views').select('*', { count: 'exact', head: true }),
       supabase.from('campaigns').select('views, downloads'),
       supabase.from('transactions').select('amount').eq('status', 'completed')
     ]);
 
     const totalViews = campaignStats?.reduce((acc, c) => acc + (c.views || 0), 0) || 0;
     const totalDownloads = campaignStats?.reduce((acc, c) => acc + (c.downloads || 0), 0) || 0;
-    const totalRevenue = completedTx?.reduce((acc, t) => acc + (t.amount || 0), 0) || 0;
+    const totalRevenue = completedTx?.reduce((acc, t) => acc + (Number(t.amount) || 0), 0) || 0;
 
     setStats({
       totalUsers: usersCount || 0,
       totalEvents: eventsCount || 0,
       totalTickets: ticketsCount || 0,
       totalCampaigns: campaignsCount || 0,
-      totalFilters: filtersCount || 0,
+      totalVisuals: visualsCount || 0,
       totalRevenue,
       totalViews,
-      totalDownloads
+      totalDownloads,
+      totalPageViews: pageViewsCount || 0
     });
   };
 
@@ -331,7 +335,7 @@ export default function SuperAdminPage() {
     { name: 'Utilisateurs', value: stats.totalUsers },
     { name: 'Événements', value: stats.totalEvents },
     { name: 'Campagnes', value: stats.totalCampaigns },
-    { name: 'Filtres', value: stats.totalFilters }
+    { name: 'Visuels', value: stats.totalVisuals }
   ] : [];
 
   return (
@@ -377,8 +381,8 @@ export default function SuperAdminPage() {
               { label: 'Tickets vendus', value: stats?.totalTickets || 0, icon: Ticket, color: 'text-success' },
               { label: 'Revenus', value: `${(stats?.totalRevenue || 0).toLocaleString()} XOF`, icon: DollarSign, color: 'text-warning' },
               { label: 'Campagnes', value: stats?.totalCampaigns || 0, icon: Image, color: 'text-primary' },
-              { label: 'Filtres vidéo', value: stats?.totalFilters || 0, icon: Video, color: 'text-accent' },
-              { label: 'Vues totales', value: stats?.totalViews || 0, icon: Eye, color: 'text-success' },
+              { label: 'Visuels publics', value: stats?.totalVisuals || 0, icon: Video, color: 'text-accent' },
+              { label: 'Vues pages', value: stats?.totalPageViews || 0, icon: Eye, color: 'text-success' },
               { label: 'Téléchargements', value: stats?.totalDownloads || 0, icon: Download, color: 'text-warning' }
             ].map((stat, i) => (
               <Card key={i} className="bg-card/50 border-border/50">
