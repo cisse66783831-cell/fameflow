@@ -204,12 +204,28 @@ export default function SuperAdminPage() {
   };
 
   const fetchCampaigns = async () => {
-    const { data } = await supabase
+    // Fetch campaigns with profile info
+    const { data: campaignsData } = await supabase
       .from('campaigns')
-      .select('id, name, slug, views, downloads, created_at, user_id')
+      .select('id, title, slug, views, downloads, created_at, user_id')
       .order('created_at', { ascending: false });
 
-    setCampaigns(data || []);
+    // Fetch profiles to map user names
+    const { data: profilesData } = await supabase
+      .from('profiles')
+      .select('id, full_name, email');
+
+    const profilesMap = (profilesData || []).reduce((acc, p) => {
+      acc[p.id] = p;
+      return acc;
+    }, {} as Record<string, { full_name: string | null; email: string | null }>);
+
+    const enrichedCampaigns = (campaignsData || []).map(c => ({
+      ...c,
+      owner_name: profilesMap[c.user_id]?.full_name || profilesMap[c.user_id]?.email || 'Inconnu'
+    }));
+
+    setCampaigns(enrichedCampaigns);
   };
 
   const fetchTransactions = async () => {

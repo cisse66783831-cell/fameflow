@@ -14,17 +14,19 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Image, Search, Trash2, RefreshCw, Loader2, Eye, Download } from 'lucide-react';
+import { Image, Search, Trash2, RefreshCw, Loader2, Eye, Download, ExternalLink, User, TrendingUp } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
 interface Campaign {
   id: string;
-  name: string;
+  title: string;
   slug: string | null;
   views: number | null;
   downloads: number | null;
   created_at: string;
   user_id: string;
+  owner_name?: string;
 }
 
 interface AdminCampaignListProps {
@@ -38,8 +40,9 @@ export function AdminCampaignList({ campaigns, onRefresh, isLoading }: AdminCamp
   const [deletingCampaignId, setDeletingCampaignId] = useState<string | null>(null);
 
   const filteredCampaigns = campaigns.filter(campaign => 
-    campaign.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    campaign.slug?.toLowerCase().includes(searchQuery.toLowerCase())
+    campaign.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    campaign.slug?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    campaign.owner_name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleDeleteCampaign = async (campaignId: string) => {
@@ -63,6 +66,11 @@ export function AdminCampaignList({ campaigns, onRefresh, isLoading }: AdminCamp
 
   const totalViews = campaigns.reduce((acc, c) => acc + (c.views || 0), 0);
   const totalDownloads = campaigns.reduce((acc, c) => acc + (c.downloads || 0), 0);
+
+  const getConversionRate = (views: number, downloads: number) => {
+    if (views === 0) return 0;
+    return ((downloads / views) * 100).toFixed(1);
+  };
 
   return (
     <Card className="bg-card/50 border-border/50">
@@ -108,22 +116,32 @@ export function AdminCampaignList({ campaigns, onRefresh, isLoading }: AdminCamp
             {filteredCampaigns.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">Aucune campagne trouvée</p>
             ) : (
-              filteredCampaigns.map((campaign) => (
-                <div 
+              filteredCampaigns.map((campaign) => {
+                const convRate = getConversionRate(campaign.views || 0, campaign.downloads || 0);
+                return (
+                  <div
                   key={campaign.id} 
-                  className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 rounded-lg bg-background/50 border border-border/30"
+                  className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 rounded-lg bg-background/50 border border-border/30 hover:border-primary/30 transition-colors"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                       <Image className="w-5 h-5 text-primary" />
                     </div>
-                    <div>
-                      <p className="font-medium">{campaign.name}</p>
-                      <p className="text-sm text-muted-foreground">/{campaign.slug}</p>
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{campaign.title}</p>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <span className="truncate">/{campaign.slug}</span>
+                        {campaign.owner_name && (
+                          <span className="flex items-center gap-1 text-xs">
+                            <User className="w-3 h-3" />
+                            {campaign.owner_name}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-4 flex-wrap">
                     <div className="flex items-center gap-2 text-sm">
                       <Eye className="w-4 h-4 text-muted-foreground" />
                       <span className="font-medium">{(campaign.views || 0).toLocaleString()}</span>
@@ -132,38 +150,53 @@ export function AdminCampaignList({ campaigns, onRefresh, isLoading }: AdminCamp
                       <Download className="w-4 h-4 text-muted-foreground" />
                       <span className="font-medium">{(campaign.downloads || 0).toLocaleString()}</span>
                     </div>
+                    <Badge variant={Number(convRate) > 10 ? "default" : "secondary"} className="flex items-center gap-1">
+                      <TrendingUp className="w-3 h-3" />
+                      {convRate}%
+                    </Badge>
                     <p className="text-xs text-muted-foreground">
                       {new Date(campaign.created_at).toLocaleDateString('fr-FR')}
                     </p>
                   </div>
 
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="icon" disabled={deletingCampaignId === campaign.id}>
-                        {deletingCampaignId === campaign.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-4 h-4" />
-                        )}
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Supprimer cette campagne ?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Cette action supprimera définitivement "{campaign.name}" et toutes ses données.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Annuler</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleDeleteCampaign(campaign.id)}>
-                          Supprimer
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="icon"
+                      onClick={() => window.open(`/c/${campaign.slug}`, '_blank')}
+                      title="Voir sur le site"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="icon" disabled={deletingCampaignId === campaign.id}>
+                          {deletingCampaignId === campaign.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Supprimer cette campagne ?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Cette action supprimera définitivement "{campaign.title}" et toutes ses données.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Annuler</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDeleteCampaign(campaign.id)}>
+                            Supprimer
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
-              ))
+                );
+              })
             )}
           </div>
         )}

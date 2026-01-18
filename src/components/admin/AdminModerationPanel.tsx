@@ -21,8 +21,8 @@ interface PublicVisual {
   id: string;
   event_id: string | null;
   campaign_id: string | null;
-  image_url: string;
-  participant_name: string | null;
+  visual_url: string;
+  creator_name: string | null;
   is_approved: boolean | null;
   created_at: string;
 }
@@ -103,12 +103,12 @@ export function AdminModerationPanel({ visuals, onRefresh, isLoading }: AdminMod
     >
       <div className="aspect-square relative">
         <img 
-          src={visual.image_url} 
-          alt={visual.participant_name || 'Visual'} 
+          src={visual.visual_url} 
+          alt={visual.creator_name || 'Visual'} 
           className="w-full h-full object-cover"
         />
         <a 
-          href={visual.image_url} 
+          href={visual.visual_url} 
           target="_blank" 
           rel="noopener noreferrer"
           className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity"
@@ -118,7 +118,7 @@ export function AdminModerationPanel({ visuals, onRefresh, isLoading }: AdminMod
       </div>
       
       <div className="p-3">
-        <p className="font-medium text-sm truncate">{visual.participant_name || 'Anonyme'}</p>
+        <p className="font-medium text-sm truncate">{visual.creator_name || 'Anonyme'}</p>
         <p className="text-xs text-muted-foreground">
           {new Date(visual.created_at).toLocaleDateString('fr-FR')}
         </p>
