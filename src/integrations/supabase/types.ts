@@ -513,6 +513,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_campaign_downloads: {
+        Args: { campaign_id: string }
+        Returns: undefined
+      }
       increment_campaign_views: {
         Args: { campaign_id: string }
         Returns: undefined

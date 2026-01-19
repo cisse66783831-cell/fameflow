@@ -8,6 +8,7 @@ import { TextElement } from '@/types/campaign';
 import { ArrowLeft, Loader2, Sparkles, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Helmet } from 'react-helmet-async';
+import { trackDownload } from '@/utils/trackDownload';
 
 const mapDbToCampaign = (db: {
   id: string;
@@ -98,10 +99,14 @@ const VideoFilterPublicPage = () => {
   const handleDownload = async () => {
     if (!campaign) return;
     
-    await supabase
-      .from('campaigns')
-      .update({ downloads: campaign.downloads + 1 })
-      .eq('id', campaign.id);
+    // Track download in download_stats (works for anonymous users)
+    await trackDownload({
+      campaignId: campaign.id,
+      mediaType: 'video',
+    });
+    
+    // Update campaign counter using RPC (atomic, works for anonymous users)
+    await supabase.rpc('increment_campaign_downloads', { campaign_id: campaign.id });
     
     setCampaign(prev => prev ? { ...prev, downloads: prev.downloads + 1 } : null);
   };
