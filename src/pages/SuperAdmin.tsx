@@ -128,7 +128,8 @@ export default function SuperAdminPage() {
       { count: campaignsCount },
       { count: visualsCount },
       { count: pageViewsCount },
-      { data: campaignStats },
+      { count: downloadStatsCount },
+      { data: campaignViews },
       { data: completedTx }
     ] = await Promise.all([
       supabase.from('profiles').select('*', { count: 'exact', head: true }),
@@ -137,12 +138,15 @@ export default function SuperAdminPage() {
       supabase.from('campaigns').select('*', { count: 'exact', head: true }),
       supabase.from('public_visuals').select('*', { count: 'exact', head: true }),
       supabase.from('page_views').select('*', { count: 'exact', head: true }),
-      supabase.from('campaigns').select('views, downloads'),
+      // Get real download count from download_stats table (source of truth)
+      supabase.from('download_stats').select('*', { count: 'exact', head: true }),
+      supabase.from('campaigns').select('views'),
       supabase.from('transactions').select('amount').eq('status', 'completed')
     ]);
 
-    const totalViews = campaignStats?.reduce((acc, c) => acc + (c.views || 0), 0) || 0;
-    const totalDownloads = campaignStats?.reduce((acc, c) => acc + (c.downloads || 0), 0) || 0;
+    const totalViews = campaignViews?.reduce((acc, c) => acc + (c.views || 0), 0) || 0;
+    // Use download_stats as source of truth for downloads
+    const totalDownloads = downloadStatsCount || 0;
     const totalRevenue = completedTx?.reduce((acc, t) => acc + (Number(t.amount) || 0), 0) || 0;
 
     setStats({
@@ -211,8 +215,21 @@ export default function SuperAdminPage() {
     // Fetch campaigns with profile info
     const { data: campaignsData } = await supabase
       .from('campaigns')
-      .select('id, title, slug, views, downloads, created_at, user_id')
+      .select('id, title, slug, views, created_at, user_id')
       .order('created_at', { ascending: false });
+
+    // Fetch real download counts from download_stats (source of truth)
+    const { data: downloadStats } = await supabase
+      .from('download_stats')
+      .select('campaign_id');
+
+    // Calculate real downloads per campaign
+    const downloadsByCampaign = (downloadStats || []).reduce((acc, d) => {
+      if (d.campaign_id) {
+        acc[d.campaign_id] = (acc[d.campaign_id] || 0) + 1;
+      }
+      return acc;
+    }, {} as Record<string, number>);
 
     // Fetch profiles to map user names
     const { data: profilesData } = await supabase
@@ -226,6 +243,8 @@ export default function SuperAdminPage() {
 
     const enrichedCampaigns = (campaignsData || []).map(c => ({
       ...c,
+      // Use real download count from download_stats
+      downloads: downloadsByCampaign[c.id] || 0,
       owner_name: profilesMap[c.user_id]?.full_name || profilesMap[c.user_id]?.email || 'Inconnu'
     }));
 

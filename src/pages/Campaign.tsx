@@ -93,11 +93,8 @@ const CampaignPage = () => {
       mediaType: mediaType === 'pdf' ? 'pdf' : 'photo',
     });
     
-    // Also update the campaign counter
-    await supabase
-      .from('campaigns')
-      .update({ downloads: campaign.downloads + 1 })
-      .eq('id', campaign.id);
+    // Update campaign counter using RPC (atomic, works for anonymous users)
+    await supabase.rpc('increment_campaign_downloads', { campaign_id: campaign.id });
     
     setCampaign(prev => prev ? { ...prev, downloads: prev.downloads + 1 } : null);
   };
