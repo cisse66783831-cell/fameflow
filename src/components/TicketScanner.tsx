@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { QRScanner } from '@/components/QRScanner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Event } from '@/types/event';
@@ -17,7 +19,8 @@ import {
   Search,
   User,
   Calendar,
-  Loader2
+  Loader2,
+  Keyboard
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -41,16 +44,23 @@ export function TicketScanner({ event, isOpen, onClose }: TicketScannerProps) {
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [isValidating, setIsValidating] = useState(false);
+  const [scanMode, setScanMode] = useState<'camera' | 'manual'>('camera');
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (isOpen && inputRef.current) {
+    if (isOpen && scanMode === 'manual' && inputRef.current) {
       inputRef.current.focus();
     }
-  }, [isOpen]);
+  }, [isOpen, scanMode]);
 
-  const handleScan = async () => {
-    if (!qrCode.trim()) {
+  const handleCameraScan = (decodedText: string) => {
+    setQrCode(decodedText);
+    // Auto-verify on camera scan
+    handleScanWithCode(decodedText);
+  };
+
+  const handleScanWithCode = async (code: string) => {
+    if (!code.trim()) {
       toast.error('Veuillez entrer ou scanner un QR code');
       return;
     }
@@ -59,11 +69,10 @@ export function TicketScanner({ event, isOpen, onClose }: TicketScannerProps) {
     setScanResult(null);
 
     try {
-      // Find ticket by QR code
       const { data: ticket, error } = await supabase
         .from('tickets')
         .select('*')
-        .eq('qr_code', qrCode.trim())
+        .eq('qr_code', code.trim())
         .eq('event_id', event.id)
         .maybeSingle();
 
@@ -114,6 +123,10 @@ export function TicketScanner({ event, isOpen, onClose }: TicketScannerProps) {
     } finally {
       setIsScanning(false);
     }
+  };
+
+  const handleScan = async () => {
+    handleScanWithCode(qrCode);
   };
 
   const handleValidate = async () => {
@@ -178,46 +191,63 @@ export function TicketScanner({ event, isOpen, onClose }: TicketScannerProps) {
           </p>
         </div>
 
-        {/* QR Input */}
-        <div className="space-y-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              ref={inputRef}
-              value={qrCode}
-              onChange={(e) => setQrCode(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Entrez ou scannez le QR code..."
-              className="pl-10 pr-4 h-12 text-lg font-mono"
-              autoComplete="off"
-            />
-          </div>
+        {/* Scan Mode Tabs */}
+        <Tabs value={scanMode} onValueChange={(v) => setScanMode(v as 'camera' | 'manual')}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="camera" className="gap-2">
+              <Camera className="w-4 h-4" />
+              Caméra
+            </TabsTrigger>
+            <TabsTrigger value="manual" className="gap-2">
+              <Keyboard className="w-4 h-4" />
+              Manuel
+            </TabsTrigger>
+          </TabsList>
 
-          <div className="flex gap-2">
-            <Button
-              onClick={handleScan}
-              disabled={isScanning || !qrCode.trim()}
-              className="flex-1 gap-2 gradient-primary text-white"
-            >
-              {isScanning ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Vérification...
-                </>
-              ) : (
-                <>
-                  <Camera className="w-4 h-4" />
-                  Vérifier
-                </>
-              )}
-            </Button>
-            {scanResult && (
-              <Button variant="outline" onClick={handleReset}>
-                Nouveau
+          <TabsContent value="camera" className="mt-4">
+            <QRScanner onScan={handleCameraScan} isActive={isOpen && scanMode === 'camera'} />
+          </TabsContent>
+
+          <TabsContent value="manual" className="mt-4 space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                ref={inputRef}
+                value={qrCode}
+                onChange={(e) => setQrCode(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Entrez le code du ticket..."
+                className="pl-10 pr-4 h-12 text-lg font-mono"
+                autoComplete="off"
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                onClick={handleScan}
+                disabled={isScanning || !qrCode.trim()}
+                className="flex-1 gap-2 gradient-primary text-white"
+              >
+                {isScanning ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Vérification...
+                  </>
+                ) : (
+                  <>
+                    <Search className="w-4 h-4" />
+                    Vérifier
+                  </>
+                )}
               </Button>
-            )}
-          </div>
-        </div>
+              {scanResult && (
+                <Button variant="outline" onClick={handleReset}>
+                  Nouveau
+                </Button>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
 
         {/* Scan Result */}
         {scanResult && (

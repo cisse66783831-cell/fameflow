@@ -191,6 +191,16 @@ export default function Auth() {
               {errors.password && (
                 <p className="text-sm text-destructive mt-1">{errors.password}</p>
               )}
+              
+              {!isSignUp && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/auth/forgot-password')}
+                  className="text-sm text-primary hover:underline"
+                >
+                  Mot de passe oublié ?
+                </button>
+              )}
             </div>
 
             <Button 
