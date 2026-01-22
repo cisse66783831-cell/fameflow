@@ -2,9 +2,11 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Upload, Download, Sparkles, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { Upload, Download, Sparkles, ZoomIn, ZoomOut, RotateCcw, MessageCircle, Eye } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { useNavigate } from 'react-router-dom';
+import { Confetti } from '@/components/Confetti';
+import { WhatsAppPreview } from '@/components/WhatsAppPreview';
 
 // Demo frame SVG - J'y serai style with gradient
 const demoFrameSvg = `
@@ -52,6 +54,9 @@ export function LandingDemo() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [showWhatsAppPreview, setShowWhatsAppPreview] = useState(false);
+  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
 
   const CANVAS_WIDTH = 300;
   const CANVAS_HEIGHT = 400;
@@ -181,13 +186,35 @@ export function LandingDemo() {
 
     drawCanvas(ctx, HD_WIDTH, HD_HEIGHT);
 
+    // Store image URL for WhatsApp preview
+    const imageDataUrl = hdCanvas.toDataURL('image/png', 1.0);
+    setGeneratedImageUrl(imageDataUrl);
+
     // Download
     const link = document.createElement('a');
     link.download = `jyserai-${userName || 'visuel'}.png`;
-    link.href = hdCanvas.toDataURL('image/png', 1.0);
+    link.href = imageDataUrl;
     link.click();
 
     setIsGenerating(false);
+    
+    // Trigger confetti celebration!
+    setShowConfetti(true);
+  };
+
+  const handlePreviewWhatsApp = () => {
+    // Generate preview image first
+    const hdCanvas = document.createElement('canvas');
+    hdCanvas.width = HD_WIDTH;
+    hdCanvas.height = HD_HEIGHT;
+    const ctx = hdCanvas.getContext('2d');
+    
+    if (ctx) {
+      drawCanvas(ctx, HD_WIDTH, HD_HEIGHT);
+      setGeneratedImageUrl(hdCanvas.toDataURL('image/png', 0.8));
+    }
+    
+    setShowWhatsAppPreview(true);
   };
 
   const resetPosition = () => {
@@ -335,7 +362,7 @@ export function LandingDemo() {
               />
             </motion.div>
 
-            {/* Step 3: Download */}
+            {/* Step 3: Download & Preview */}
             <motion.div 
               variants={fadeInUp}
               className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm"
@@ -344,16 +371,30 @@ export function LandingDemo() {
                 <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center text-violet-600 font-bold text-sm">
                   3
                 </div>
-                <h3 className="font-semibold text-slate-900">Téléchargez !</h3>
+                <h3 className="font-semibold text-slate-900">Téléchargez & Partagez !</h3>
               </div>
-              <Button
-                onClick={handleDownload}
-                disabled={!userPhoto || isGenerating}
-                className="w-full h-12 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white font-semibold rounded-xl shadow-lg shadow-violet-500/25"
-              >
-                <Download className="w-5 h-5 mr-2" />
-                {isGenerating ? 'Génération...' : 'Télécharger mon visuel HD'}
-              </Button>
+              
+              <div className="space-y-3">
+                <Button
+                  onClick={handleDownload}
+                  disabled={!userPhoto || isGenerating}
+                  className="w-full h-12 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white font-semibold rounded-xl shadow-lg shadow-violet-500/25"
+                >
+                  <Download className="w-5 h-5 mr-2" />
+                  {isGenerating ? 'Génération...' : 'Télécharger mon visuel HD'}
+                </Button>
+                
+                {/* WhatsApp Preview Button */}
+                <Button
+                  variant="outline"
+                  onClick={handlePreviewWhatsApp}
+                  disabled={!userPhoto}
+                  className="w-full h-12 rounded-xl border-[#25D366] text-[#25D366] hover:bg-[#25D366]/10 font-medium"
+                >
+                  <Eye className="w-5 h-5 mr-2" />
+                  Prévisualiser sur WhatsApp
+                </Button>
+              </div>
             </motion.div>
 
             {/* CTA to full platform */}
@@ -370,6 +411,22 @@ export function LandingDemo() {
           </div>
         </motion.div>
       </div>
+      
+      {/* Confetti celebration */}
+      <Confetti 
+        isActive={showConfetti} 
+        onComplete={() => setShowConfetti(false)}
+        duration={3000}
+      />
+      
+      {/* WhatsApp Preview Modal */}
+      <WhatsAppPreview
+        isOpen={showWhatsAppPreview}
+        onClose={() => setShowWhatsAppPreview(false)}
+        imageUrl={generatedImageUrl || undefined}
+        userName={userName || 'Vous'}
+        eventName="Événement Jyserai"
+      />
     </motion.section>
   );
 }
