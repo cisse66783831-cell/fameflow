@@ -7,7 +7,8 @@ import {
   Sparkles, ArrowRight, Play, CheckCircle2, Users, Smartphone, 
   BarChart3, Share2, MessageCircle, Video, Image as ImageIcon
 } from 'lucide-react';
-
+import { SocialProofMasonry } from '@/components/SocialProofMasonry';
+import { LandingDemo } from '@/components/LandingDemo';
 // Animation variants
 const fadeInUp = {
   hidden: { opacity: 0, y: 30 },
@@ -351,66 +352,8 @@ export default function Landing() {
         </div>
       </motion.section>
 
-      {/* Stats / Social Proof */}
-      <motion.section 
-        className="relative py-12 sm:py-16 px-4 sm:px-6 bg-gradient-to-b from-slate-50/50 to-white border-y border-slate-100"
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, margin: "-100px" }}
-        variants={staggerContainer}
-      >
-        <div className="container mx-auto max-w-4xl text-center">
-          <motion.p 
-            variants={fadeInUp}
-            className="text-base sm:text-lg font-semibold text-slate-900 mb-6 sm:mb-8"
-          >
-            Déjà plus de <span className="text-violet-600">2 000</span> visuels créés pour des événements en Afrique francophone
-          </motion.p>
-          
-          {/* Avatars */}
-          <motion.div 
-            variants={fadeInScale}
-            className="flex items-center justify-center mb-6 sm:mb-8"
-          >
-            <div className="flex -space-x-2 sm:-space-x-3">
-              {avatars.map((avatar, i) => (
-                <motion.div 
-                  key={i}
-                  className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full ${avatar.color} border-2 sm:border-3 border-white flex items-center justify-center text-white font-bold text-xs sm:text-sm shadow-lg`}
-                  style={{ zIndex: avatars.length - i }}
-                  initial={{ opacity: 0, scale: 0 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: i * 0.1 }}
-                  whileHover={{ scale: 1.1, zIndex: 10 }}
-                >
-                  {avatar.name[0]}
-                </motion.div>
-              ))}
-              <motion.div 
-                className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-slate-200 border-2 sm:border-3 border-white flex items-center justify-center text-slate-600 font-medium text-[10px] sm:text-xs shadow-lg"
-                whileHover={{ scale: 1.1 }}
-              >
-                +2K
-              </motion.div>
-            </div>
-          </motion.div>
-
-          {/* Mini visual grid */}
-          <motion.div 
-            variants={staggerContainer}
-            className="grid grid-cols-4 sm:grid-cols-8 gap-1.5 sm:gap-2 max-w-2xl mx-auto opacity-60"
-          >
-            {Array.from({ length: 8 }).map((_, i) => (
-              <motion.div 
-                key={i}
-                variants={fadeInScale}
-                className="aspect-[3/4] rounded-md sm:rounded-lg bg-gradient-to-br from-slate-100 to-slate-200"
-                whileHover={{ scale: 1.05 }}
-              />
-            ))}
-          </motion.div>
-        </div>
-      </motion.section>
+      {/* Social Proof Masonry - Real visuals from database */}
+      <SocialProofMasonry />
 
       {/* How it Works */}
       <motion.section 
@@ -580,6 +523,9 @@ export default function Landing() {
           </div>
         </div>
       </motion.section>
+
+      {/* Interactive Demo Section */}
+      <LandingDemo />
 
       {/* Final CTA */}
       <motion.section 
