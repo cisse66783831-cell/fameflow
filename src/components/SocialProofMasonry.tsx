@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { usePublicVisuals } from '@/hooks/usePublicVisuals';
 import { useMemo } from 'react';
+import { Star } from 'lucide-react';
 
 // Mock visuals for fallback when database is empty
 const mockVisuals = [
@@ -39,12 +40,11 @@ const fadeInScale = {
 };
 
 interface VisualCardProps {
-  visual: typeof mockVisuals[0];
-  imageUrl?: string;
+  visual: typeof mockVisuals[0] & { imageUrl?: string; isFeatured?: boolean };
   index: number;
 }
 
-function VisualCard({ visual, imageUrl, index }: VisualCardProps) {
+function VisualCard({ visual, index }: VisualCardProps) {
   // Vary heights for masonry effect
   const heights = ['h-48', 'h-56', 'h-64', 'h-52'];
   const height = heights[index % heights.length];
@@ -52,14 +52,20 @@ function VisualCard({ visual, imageUrl, index }: VisualCardProps) {
   return (
     <motion.div
       variants={fadeInScale}
-      className={`${height} rounded-2xl overflow-hidden relative group cursor-pointer`}
+      className={`${height} rounded-2xl overflow-hidden relative group cursor-pointer ${visual.isFeatured ? 'ring-2 ring-yellow-500/50' : ''}`}
       whileHover={{ scale: 1.03, zIndex: 10 }}
       transition={{ type: "spring", stiffness: 300, damping: 20 }}
     >
-      {imageUrl ? (
+      {visual.isFeatured && (
+        <div className="absolute top-2 left-2 z-10 px-2 py-1 bg-yellow-500 text-yellow-950 text-xs font-bold rounded-full flex items-center gap-1">
+          <Star className="w-3 h-3" />
+          Featured
+        </div>
+      )}
+      {visual.imageUrl ? (
         // Real visual from database
         <img 
-          src={imageUrl} 
+          src={visual.imageUrl} 
           alt={`Visuel de ${visual.name}`}
           className="w-full h-full object-cover"
           loading="lazy"
@@ -101,20 +107,28 @@ function VisualCard({ visual, imageUrl, index }: VisualCardProps) {
 export function SocialProofMasonry() {
   const { visuals: dbVisuals, isLoading } = usePublicVisuals();
 
-  // Merge real visuals with mocks, prioritizing real ones
+  // Merge real visuals with mocks, prioritizing featured then real ones
   const displayVisuals = useMemo(() => {
     if (dbVisuals.length > 0) {
+      // Sort: featured first, then by date
+      const sorted = [...dbVisuals].sort((a, b) => {
+        if (a.is_featured && !b.is_featured) return -1;
+        if (!a.is_featured && b.is_featured) return 1;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+      
       // Use real visuals
-      return dbVisuals.slice(0, 12).map((v, i) => ({
+      return sorted.slice(0, 12).map((v, i) => ({
         id: v.id,
         name: v.creator_name,
         color: mockVisuals[i % mockVisuals.length].color,
         event: v.event?.title || 'Événement',
         imageUrl: v.visual_url,
+        isFeatured: v.is_featured,
       }));
     }
     // Fallback to mock visuals
-    return mockVisuals;
+    return mockVisuals.map(m => ({ ...m, imageUrl: undefined, isFeatured: false }));
   }, [dbVisuals]);
 
   return (
@@ -148,7 +162,6 @@ export function SocialProofMasonry() {
             <VisualCard 
               key={visual.id} 
               visual={visual}
-              imageUrl={'imageUrl' in visual ? (visual.imageUrl as string) : undefined}
               index={index}
             />
           ))}

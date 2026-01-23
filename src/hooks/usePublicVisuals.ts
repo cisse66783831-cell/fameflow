@@ -59,7 +59,7 @@ export function usePublicVisuals(eventId?: string) {
     };
   }, [fetchVisuals, eventId]);
 
-  const addVisual = async (visual: Omit<PublicVisual, 'id' | 'created_at' | 'is_approved' | 'views'>) => {
+  const addVisual = async (visual: Omit<PublicVisual, 'id' | 'created_at' | 'is_approved' | 'is_featured' | 'views'>) => {
     const { data, error } = await supabase
       .from('public_visuals')
       .insert(visual)

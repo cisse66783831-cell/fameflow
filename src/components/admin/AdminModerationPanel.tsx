@@ -14,7 +14,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Image, Trash2, RefreshCw, Loader2, Check, X, ExternalLink } from 'lucide-react';
+import { Image, Trash2, RefreshCw, Loader2, Check, X, ExternalLink, Star, StarOff } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface PublicVisual {
@@ -24,6 +24,7 @@ interface PublicVisual {
   visual_url: string;
   creator_name: string | null;
   is_approved: boolean | null;
+  is_featured: boolean | null;
   created_at: string;
 }
 
@@ -38,6 +39,7 @@ export function AdminModerationPanel({ visuals, onRefresh, isLoading }: AdminMod
 
   const pendingVisuals = visuals.filter(v => v.is_approved === null || v.is_approved === false);
   const approvedVisuals = visuals.filter(v => v.is_approved === true);
+  const featuredVisuals = visuals.filter(v => v.is_featured === true);
 
   const handleApprove = async (visualId: string) => {
     setProcessingId(visualId);
@@ -77,6 +79,25 @@ export function AdminModerationPanel({ visuals, onRefresh, isLoading }: AdminMod
     }
   };
 
+  const handleFeature = async (visualId: string, featured: boolean) => {
+    setProcessingId(visualId);
+    try {
+      const { error } = await supabase
+        .from('public_visuals')
+        .update({ is_featured: featured })
+        .eq('id', visualId);
+
+      if (error) throw error;
+      toast.success(featured ? 'Visuel mis en avant' : 'Visuel retiré de la mise en avant');
+      onRefresh();
+    } catch (error) {
+      console.error('Error featuring visual:', error);
+      toast.error('Erreur lors de la mise en avant');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   const handleDelete = async (visualId: string) => {
     setProcessingId(visualId);
     try {
@@ -99,8 +120,14 @@ export function AdminModerationPanel({ visuals, onRefresh, isLoading }: AdminMod
   const renderVisualCard = (visual: PublicVisual, showApprovalButtons: boolean) => (
     <div 
       key={visual.id}
-      className="relative group rounded-lg overflow-hidden border border-border/30 bg-background/50"
+      className={`relative group rounded-lg overflow-hidden border bg-background/50 ${visual.is_featured ? 'border-yellow-500/50 ring-2 ring-yellow-500/20' : 'border-border/30'}`}
     >
+      {visual.is_featured && (
+        <div className="absolute top-2 left-2 z-10 px-2 py-1 bg-yellow-500 text-yellow-950 text-xs font-bold rounded-full flex items-center gap-1">
+          <Star className="w-3 h-3" />
+          Mis en avant
+        </div>
+      )}
       <div className="aspect-square relative">
         <img 
           src={visual.visual_url} 
@@ -152,7 +179,19 @@ export function AdminModerationPanel({ visuals, onRefresh, isLoading }: AdminMod
               </Button>
             </>
           ) : (
-            <Badge className="bg-green-500/20 text-green-400">Approuvé</Badge>
+            <>
+              <Badge className="bg-green-500/20 text-green-400">Approuvé</Badge>
+              <Button
+                size="sm"
+                variant={visual.is_featured ? "secondary" : "outline"}
+                onClick={() => handleFeature(visual.id, !visual.is_featured)}
+                disabled={processingId === visual.id}
+                className={visual.is_featured ? 'text-yellow-500' : ''}
+                title={visual.is_featured ? 'Retirer de la mise en avant' : 'Mettre en avant'}
+              >
+                {visual.is_featured ? <StarOff className="w-4 h-4" /> : <Star className="w-4 h-4" />}
+              </Button>
+            </>
           )}
           
           <AlertDialog>
@@ -193,6 +232,7 @@ export function AdminModerationPanel({ visuals, onRefresh, isLoading }: AdminMod
             <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
               <span>En attente : <span className="font-semibold text-warning">{pendingVisuals.length}</span></span>
               <span>Approuvés : <span className="font-semibold text-success">{approvedVisuals.length}</span></span>
+              <span>Mis en avant : <span className="font-semibold text-yellow-500">{featuredVisuals.length}</span></span>
             </div>
           </div>
           <Button variant="outline" size="icon" onClick={onRefresh} disabled={isLoading}>

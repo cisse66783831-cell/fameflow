@@ -302,6 +302,7 @@ export type Database = {
           event_id: string
           id: string
           is_approved: boolean | null
+          is_featured: boolean | null
           user_id: string | null
           views: number | null
           visual_url: string
@@ -313,6 +314,7 @@ export type Database = {
           event_id: string
           id?: string
           is_approved?: boolean | null
+          is_featured?: boolean | null
           user_id?: string | null
           views?: number | null
           visual_url: string
@@ -324,6 +326,7 @@ export type Database = {
           event_id?: string
           id?: string
           is_approved?: boolean | null
+          is_featured?: boolean | null
           user_id?: string | null
           views?: number | null
           visual_url?: string
