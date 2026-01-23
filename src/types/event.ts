@@ -26,6 +26,7 @@ export interface PublicVisual {
   creator_photo: string | null;
   visual_url: string;
   is_approved: boolean;
+  is_featured: boolean;
   views: number;
   created_at: string;
   event?: Event;

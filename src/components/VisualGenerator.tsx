@@ -2,11 +2,12 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Event } from '@/types/event';
-import { Camera, Upload, Download, Share2, Loader2, Sparkles, X } from 'lucide-react';
+import { Camera, Upload, Download, Share2, Loader2, Sparkles, X, Globe } from 'lucide-react';
 
 interface VisualGeneratorProps {
   event: Event;
@@ -29,6 +30,7 @@ export function VisualGenerator({ event, isOpen, onClose, onVisualCreated }: Vis
   const [offsetY, setOffsetY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [wantPublic, setWantPublic] = useState(false);
 
   // Résolutions pour export HD
   const EXPORT_SIZE = 2160; // 2160x2160 pour une qualité Instagram HD
@@ -360,6 +362,28 @@ export function VisualGenerator({ event, isOpen, onClose, onVisualCreated }: Vis
           {/* Hidden canvas for generation */}
           <canvas ref={canvasRef} className="hidden" />
 
+          {/* Public wall opt-in checkbox */}
+          <div className="flex items-start gap-3 p-4 rounded-xl bg-secondary/30 border border-border/50">
+            <Checkbox
+              id="public-wall"
+              checked={wantPublic}
+              onCheckedChange={(checked) => setWantPublic(checked === true)}
+              className="mt-0.5"
+            />
+            <div className="space-y-1">
+              <Label 
+                htmlFor="public-wall" 
+                className="text-sm font-medium cursor-pointer flex items-center gap-2"
+              >
+                <Globe className="w-4 h-4 text-primary" />
+                Publier sur le mur social
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Votre visuel pourra être affiché sur notre page d'accueil et les pages de l'événement
+              </p>
+            </div>
+          </div>
+
           {/* Action Buttons */}
           <div className="flex gap-3">
             {generatedVisual ? (
@@ -379,13 +403,15 @@ export function VisualGenerator({ event, isOpen, onClose, onVisualCreated }: Vis
                   <Share2 className="w-4 h-4 mr-2" />
                   Partager
                 </Button>
-                <Button
-                  className="flex-1 btn-neon gradient-primary text-white"
-                  onClick={saveToWall}
-                >
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  Publier
-                </Button>
+                {wantPublic && (
+                  <Button
+                    className="flex-1 btn-neon gradient-primary text-white"
+                    onClick={saveToWall}
+                  >
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Publier
+                  </Button>
+                )}
               </>
             ) : (
               <Button
