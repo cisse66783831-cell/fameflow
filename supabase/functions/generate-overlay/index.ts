@@ -18,8 +18,10 @@ async function generateWithLovable(prompt: string, originalImageUrl: string): Pr
     throw new Error("LOVABLE_API_KEY is not configured");
   }
 
-  console.log("Generating with Lovable AI...");
-  console.log("Prompt:", prompt.substring(0, 200) + "...");
+  console.log("=== GENERATING WITH LOVABLE AI ===");
+  console.log("Original Image URL:", originalImageUrl?.substring(0, 100) + "...");
+  console.log("Prompt:", prompt.substring(0, 300) + "...");
+  console.log("Timestamp:", new Date().toISOString());
 
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -28,7 +30,7 @@ async function generateWithLovable(prompt: string, originalImageUrl: string): Pr
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash-image-preview",
+      model: "google/gemini-3-pro-image-preview",
       messages: [
         {
           role: "user",
@@ -65,7 +67,9 @@ async function generateWithLovable(prompt: string, originalImageUrl: string): Pr
   }
 
   const data = await response.json();
-  console.log("Lovable AI response received");
+  console.log("=== LOVABLE AI RESPONSE ===");
+  console.log("Has choices:", !!data.choices?.length);
+  console.log("Has images:", !!data.choices?.[0]?.message?.images?.length);
 
   const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
   if (!imageUrl) {

@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion';
 import { usePublicVisuals } from '@/hooks/usePublicVisuals';
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Star } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 // Mock visuals for fallback when database is empty
 const mockVisuals = [
@@ -106,6 +107,22 @@ function VisualCard({ visual, index }: VisualCardProps) {
 
 export function SocialProofMasonry() {
   const { visuals: dbVisuals, isLoading } = usePublicVisuals();
+  const [visualCount, setVisualCount] = useState<number>(0);
+
+  // Fetch total count of approved visuals
+  useEffect(() => {
+    const fetchCount = async () => {
+      const { count, error } = await supabase
+        .from('public_visuals')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_approved', true);
+      
+      if (!error && count !== null) {
+        setVisualCount(count);
+      }
+    };
+    fetchCount();
+  }, [dbVisuals]); // Refetch when visuals change
 
   // Merge real visuals with mocks, prioritizing featured then real ones
   const displayVisuals = useMemo(() => {
@@ -124,12 +141,35 @@ export function SocialProofMasonry() {
         color: mockVisuals[i % mockVisuals.length].color,
         event: v.event?.title || 'Événement',
         imageUrl: v.visual_url,
-        isFeatured: v.is_featured,
+        isFeatured: v.is_featured ?? false,
       }));
     }
     // Fallback to mock visuals
     return mockVisuals.map(m => ({ ...m, imageUrl: undefined, isFeatured: false }));
   }, [dbVisuals]);
+
+  // Dynamic header text based on real count
+  const headerText = useMemo(() => {
+    if (visualCount >= 100) {
+      return (
+        <>
+          Déjà plus de <span className="bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent font-bold">{visualCount.toLocaleString('fr-FR')}</span> visuels créés
+        </>
+      );
+    }
+    if (visualCount > 0) {
+      return (
+        <>
+          Rejoignez les <span className="bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent font-bold">{visualCount}</span> créateurs
+        </>
+      );
+    }
+    return (
+      <>
+        Rejoignez la communauté <span className="bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent font-bold">J'y serai !</span>
+      </>
+    );
+  }, [visualCount]);
 
   return (
     <motion.section 
@@ -146,7 +186,7 @@ export function SocialProofMasonry() {
           variants={fadeInScale}
         >
           <p className="text-base sm:text-lg font-semibold text-slate-900 mb-2">
-            Déjà plus de <span className="bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent font-bold">2 000</span> visuels créés
+            {headerText}
           </p>
           <p className="text-slate-500 text-sm">
             pour des événements en Afrique francophone

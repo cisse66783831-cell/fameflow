@@ -36,16 +36,16 @@ export function VisualGenerator({ event, isOpen, onClose, onVisualCreated }: Vis
   const EXPORT_SIZE = 2160; // 2160x2160 pour une qualité Instagram HD
   const PREVIEW_SIZE = 540; // Aperçu rapide
 
-  // Get photo zone settings with defaults
+  // Get photo zone settings with defaults (all nullable in DB)
   const photoZone = {
-    x: (event as any).photo_zone_x ?? 50,
-    y: (event as any).photo_zone_y ?? 50,
-    width: (event as any).photo_zone_width ?? 30,
-    height: (event as any).photo_zone_height ?? 30,
-    shape: ((event as any).photo_zone_shape ?? 'circle') as 'rect' | 'circle',
+    x: event.photo_zone_x ?? 50,
+    y: event.photo_zone_y ?? 50,
+    width: event.photo_zone_width ?? 30,
+    height: event.photo_zone_height ?? 30,
+    shape: (event.photo_zone_shape ?? 'circle') as 'rect' | 'circle',
   };
-  const nameZoneEnabled = (event as any).name_zone_enabled ?? true;
-  const nameZoneY = (event as any).name_zone_y ?? 85;
+  const nameZoneEnabled = event.name_zone_enabled ?? true;
+  const nameZoneY = event.name_zone_y ?? 85;
 
   const generateVisual = useCallback(async (forExport = false) => {
     const canvas = canvasRef.current;

@@ -36,18 +36,20 @@ export function usePublicVisuals(eventId?: string) {
   useEffect(() => {
     fetchVisuals();
 
-    // Subscribe to realtime updates
+    // Subscribe to realtime updates (INSERT, UPDATE, DELETE)
     const channel = supabase
       .channel('public_visuals_changes')
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*', // Listen to all events
           schema: 'public',
           table: 'public_visuals',
         },
         (payload) => {
-          if (!eventId || payload.new.event_id === eventId) {
+          const newEventId = (payload.new as any)?.event_id;
+          const oldEventId = (payload.old as any)?.event_id;
+          if (!eventId || newEventId === eventId || oldEventId === eventId) {
             fetchVisuals();
           }
         }

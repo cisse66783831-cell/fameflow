@@ -31,6 +31,7 @@ export function AIFrameGenerator({
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [customPrompt, setCustomPrompt] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [generationProgress, setGenerationProgress] = useState<string>('');
 
   const modeDescriptions: Record<GenerationMode, { title: string; description: string; icon: React.ReactNode }> = {
     overlay: {
@@ -90,8 +91,14 @@ export function AIFrameGenerator({
     setIsGenerating(true);
     setError(null);
     setGeneratedImage(null);
+    setGenerationProgress('Analyse de votre affiche...');
 
     try {
+      // Simulate progress
+      setTimeout(() => setGenerationProgress('Génération du design...'), 2000);
+      setTimeout(() => setGenerationProgress('Application du style...'), 5000);
+      setTimeout(() => setGenerationProgress('Finalisation...'), 8000);
+
       const { data, error: fnError } = await supabase.functions.invoke('generate-overlay', {
         body: {
           mode,
@@ -127,6 +134,7 @@ export function AIFrameGenerator({
       toast.error('Erreur de génération');
     } finally {
       setIsGenerating(false);
+      setGenerationProgress('');
     }
   };
 
@@ -169,8 +177,33 @@ export function AIFrameGenerator({
             </div>
           </div>
 
+          {/* Loading state with skeleton */}
+          {isGenerating && (
+            <div className="space-y-4">
+              <div className="aspect-square max-w-sm mx-auto rounded-2xl bg-gradient-to-br from-primary/10 via-secondary/30 to-primary/5 animate-pulse flex flex-col items-center justify-center p-8">
+                <div className="relative">
+                  <div className="w-16 h-16 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+                  <Sparkles className="w-6 h-6 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                </div>
+                <p className="text-sm font-medium text-foreground mt-6">{generationProgress}</p>
+                <p className="text-xs text-muted-foreground mt-2">Cela peut prendre 15-30 secondes</p>
+                
+                {/* Animated dots */}
+                <div className="flex gap-1 mt-4">
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="w-2 h-2 rounded-full bg-primary animate-bounce"
+                      style={{ animationDelay: `${i * 0.15}s` }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Mode selection */}
-          {!generatedImage && !error && (
+          {!generatedImage && !error && !isGenerating && (
             <>
               <div className="space-y-3">
                 <Label className="text-sm font-medium">Mode de génération</Label>
@@ -225,17 +258,8 @@ export function AIFrameGenerator({
                 className="w-full gap-2 gradient-primary text-white"
                 size="lg"
               >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Génération en cours...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-5 h-5" />
-                    Générer avec l'IA
-                  </>
-                )}
+                <Sparkles className="w-5 h-5" />
+                Générer avec l'IA
               </Button>
             </>
           )}
