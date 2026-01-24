@@ -36,6 +36,17 @@ export function VisualGenerator({ event, isOpen, onClose, onVisualCreated }: Vis
   const EXPORT_SIZE = 2160; // 2160x2160 pour une qualité Instagram HD
   const PREVIEW_SIZE = 540; // Aperçu rapide
 
+  // Get photo zone settings with defaults
+  const photoZone = {
+    x: (event as any).photo_zone_x ?? 50,
+    y: (event as any).photo_zone_y ?? 50,
+    width: (event as any).photo_zone_width ?? 30,
+    height: (event as any).photo_zone_height ?? 30,
+    shape: ((event as any).photo_zone_shape ?? 'circle') as 'rect' | 'circle',
+  };
+  const nameZoneEnabled = (event as any).name_zone_enabled ?? true;
+  const nameZoneY = (event as any).name_zone_y ?? 85;
+
   const generateVisual = useCallback(async (forExport = false) => {
     const canvas = canvasRef.current;
     if (!canvas || !userPhoto || !name) return;
@@ -53,7 +64,10 @@ export function VisualGenerator({ event, isOpen, onClose, onVisualCreated }: Vis
       canvas.width = size;
       canvas.height = size;
 
-      // Load and draw user photo first (background)
+      // Clear canvas
+      ctx.clearRect(0, 0, size, size);
+
+      // Load user photo
       const photoImg = new Image();
       photoImg.crossOrigin = 'anonymous';
       await new Promise<void>((resolve, reject) => {
@@ -62,23 +76,7 @@ export function VisualGenerator({ event, isOpen, onClose, onVisualCreated }: Vis
         photoImg.src = userPhoto;
       });
 
-      // Calculate dimensions to fit photo
-      const photoAspect = photoImg.width / photoImg.height;
-      let drawWidth = size * zoom;
-      let drawHeight = size * zoom;
-
-      if (photoAspect > 1) {
-        drawHeight = drawWidth / photoAspect;
-      } else {
-        drawWidth = drawHeight * photoAspect;
-      }
-
-      const x = (size - drawWidth) / 2 + offsetX * scale;
-      const y = (size - drawHeight) / 2 + offsetY * scale;
-
-      ctx.drawImage(photoImg, x, y, drawWidth, drawHeight);
-
-      // Load and draw frame overlay
+      // Load frame image
       const frameImg = new Image();
       frameImg.crossOrigin = 'anonymous';
       await new Promise<void>((resolve, reject) => {
@@ -87,33 +85,83 @@ export function VisualGenerator({ event, isOpen, onClose, onVisualCreated }: Vis
         frameImg.src = event.frame_image;
       });
 
-      ctx.drawImage(frameImg, 0, 0, size, size);
+      // Calculate photo zone in pixels
+      const zoneX = (photoZone.x / 100) * size;
+      const zoneY = (photoZone.y / 100) * size;
+      const zoneWidth = (photoZone.width / 100) * size;
+      const zoneHeight = (photoZone.height / 100) * size;
 
-      // Add user name with neon effect - tailles adaptées
+      // Draw user photo in the defined zone with clipping mask
       ctx.save();
-      ctx.font = `bold ${48 * scale}px Outfit, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
+      ctx.beginPath();
       
-      // Neon glow effect
-      ctx.shadowColor = '#ff1493';
-      ctx.shadowBlur = 20 * scale;
-      ctx.fillStyle = '#ffffff';
-      ctx.fillText(name.toUpperCase(), size / 2, size - 80 * scale);
+      if (photoZone.shape === 'circle') {
+        // Circle mask
+        const radius = Math.min(zoneWidth, zoneHeight) / 2;
+        ctx.arc(zoneX, zoneY, radius, 0, Math.PI * 2);
+      } else {
+        // Rectangle mask with rounded corners
+        const cornerRadius = 10 * scale;
+        const left = zoneX - zoneWidth / 2;
+        const top = zoneY - zoneHeight / 2;
+        ctx.roundRect(left, top, zoneWidth, zoneHeight, cornerRadius);
+      }
+      ctx.clip();
+
+      // Calculate dimensions to fill the zone while maintaining aspect ratio
+      const photoAspect = photoImg.width / photoImg.height;
+      const zoneAspect = zoneWidth / zoneHeight;
       
-      // Double pass for stronger glow
-      ctx.shadowBlur = 40 * scale;
-      ctx.fillText(name.toUpperCase(), size / 2, size - 80 * scale);
+      let drawWidth, drawHeight;
+      if (photoAspect > zoneAspect) {
+        // Photo is wider - fit to height
+        drawHeight = zoneHeight * zoom;
+        drawWidth = drawHeight * photoAspect;
+      } else {
+        // Photo is taller - fit to width
+        drawWidth = zoneWidth * zoom;
+        drawHeight = drawWidth / photoAspect;
+      }
+
+      const photoX = zoneX - drawWidth / 2 + offsetX * scale;
+      const photoY = zoneY - drawHeight / 2 + offsetY * scale;
+
+      ctx.drawImage(photoImg, photoX, photoY, drawWidth, drawHeight);
       ctx.restore();
 
-      // Add "J'Y SERAI" badge
+      // Draw frame overlay on top
+      ctx.drawImage(frameImg, 0, 0, size, size);
+
+      // Add user name with neon effect if enabled
+      if (nameZoneEnabled) {
+        const nameY = (nameZoneY / 100) * size;
+        
+        ctx.save();
+        ctx.font = `bold ${48 * scale}px Outfit, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // Neon glow effect
+        ctx.shadowColor = '#ff1493';
+        ctx.shadowBlur = 20 * scale;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(name.toUpperCase(), size / 2, nameY);
+        
+        // Double pass for stronger glow
+        ctx.shadowBlur = 40 * scale;
+        ctx.fillText(name.toUpperCase(), size / 2, nameY);
+        ctx.restore();
+      }
+
+      // Add "J'Y SERAI" badge below name
       ctx.save();
-      ctx.font = `bold ${32 * scale}px Outfit, sans-serif`;
+      const badgeY = nameZoneEnabled ? ((nameZoneY + 8) / 100) * size : size - 50 * scale;
+      ctx.font = `bold ${28 * scale}px Outfit, sans-serif`;
       ctx.textAlign = 'center';
       ctx.fillStyle = '#00ffff';
       ctx.shadowColor = '#00ffff';
       ctx.shadowBlur = 15 * scale;
-      ctx.fillText("J'Y SERAI !", size / 2, size - 30 * scale);
+      ctx.fillText("J'Y SERAI !", size / 2, badgeY);
       ctx.restore();
 
       // NOTE: No QR code is added to prevent ticket theft
@@ -131,7 +179,7 @@ export function VisualGenerator({ event, isOpen, onClose, onVisualCreated }: Vis
     } finally {
       setIsGenerating(false);
     }
-  }, [userPhoto, name, event.frame_image, zoom, offsetX, offsetY, toast]);
+  }, [userPhoto, name, event.frame_image, zoom, offsetX, offsetY, toast, photoZone, nameZoneEnabled, nameZoneY]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.convert-to-mp4]
 verify_jwt = false
+
+[functions.generate-overlay]
+verify_jwt = false

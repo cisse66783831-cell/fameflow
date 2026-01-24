@@ -166,6 +166,13 @@ export type Database = {
           id: string
           is_active: boolean | null
           max_tickets: number | null
+          name_zone_enabled: boolean | null
+          name_zone_y: number | null
+          photo_zone_height: number | null
+          photo_zone_shape: string | null
+          photo_zone_width: number | null
+          photo_zone_x: number | null
+          photo_zone_y: number | null
           qr_position_x: number | null
           qr_position_y: number | null
           ticket_price: number | null
@@ -185,6 +192,13 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           max_tickets?: number | null
+          name_zone_enabled?: boolean | null
+          name_zone_y?: number | null
+          photo_zone_height?: number | null
+          photo_zone_shape?: string | null
+          photo_zone_width?: number | null
+          photo_zone_x?: number | null
+          photo_zone_y?: number | null
           qr_position_x?: number | null
           qr_position_y?: number | null
           ticket_price?: number | null
@@ -204,6 +218,13 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           max_tickets?: number | null
+          name_zone_enabled?: boolean | null
+          name_zone_y?: number | null
+          photo_zone_height?: number | null
+          photo_zone_shape?: string | null
+          photo_zone_width?: number | null
+          photo_zone_x?: number | null
+          photo_zone_y?: number | null
           qr_position_x?: number | null
           qr_position_y?: number | null
           ticket_price?: number | null

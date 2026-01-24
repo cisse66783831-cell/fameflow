@@ -16,6 +16,14 @@ export interface Event {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  // Photo zone positioning
+  photo_zone_x: number;
+  photo_zone_y: number;
+  photo_zone_width: number;
+  photo_zone_height: number;
+  photo_zone_shape: 'rect' | 'circle';
+  name_zone_enabled: boolean;
+  name_zone_y: number;
 }
 
 export interface PublicVisual {
