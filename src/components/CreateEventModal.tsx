@@ -92,7 +92,7 @@ export function CreateEventModal({ isOpen, onClose, event, onSuccess }: CreateEv
         photo_zone_y: event.photo_zone_y ?? 50,
         photo_zone_width: event.photo_zone_width ?? 30,
         photo_zone_height: event.photo_zone_height ?? 30,
-        photo_zone_shape: event.photo_zone_shape ?? 'circle',
+        photo_zone_shape: (event.photo_zone_shape ?? 'circle') as 'rect' | 'circle',
         name_zone_enabled: event.name_zone_enabled ?? true,
         name_zone_y: event.name_zone_y ?? 85,
       });

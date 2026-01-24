@@ -2,11 +2,15 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Upload, Download, Sparkles, ZoomIn, ZoomOut, RotateCcw, MessageCircle, Eye } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { Upload, Download, Sparkles, ZoomIn, ZoomOut, RotateCcw, Eye, Globe, Loader2 } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { useNavigate } from 'react-router-dom';
 import { Confetti } from '@/components/Confetti';
 import { WhatsAppPreview } from '@/components/WhatsAppPreview';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 // Demo frame SVG - J'y serai style with gradient
 const demoFrameSvg = `
@@ -34,6 +38,9 @@ const demoFrameSvg = `
 
 const demoFrameBase64 = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(demoFrameSvg)))}`;
 
+// Demo event ID for landing page visuals (we'll use a placeholder UUID)
+const DEMO_EVENT_ID = '00000000-0000-0000-0000-000000000000';
+
 const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
   visible: { 
@@ -48,15 +55,18 @@ export function LandingDemo() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [userName, setUserName] = useState('');
   const [userPhoto, setUserPhoto] = useState<HTMLImageElement | null>(null);
+  const [userPhotoBase64, setUserPhotoBase64] = useState<string | null>(null);
   const [frameImage, setFrameImage] = useState<HTMLImageElement | null>(null);
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [showWhatsAppPreview, setShowWhatsAppPreview] = useState(false);
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
+  const [wantPublic, setWantPublic] = useState(false);
 
   const CANVAS_WIDTH = 300;
   const CANVAS_HEIGHT = 400;
@@ -131,13 +141,16 @@ export function LandingDemo() {
     
     const reader = new FileReader();
     reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      setUserPhotoBase64(dataUrl);
+      
       const img = new Image();
       img.onload = () => {
         setUserPhoto(img);
         setZoom(1);
         setOffset({ x: 0, y: 0 });
       };
-      img.src = event.target?.result as string;
+      img.src = dataUrl;
     };
     reader.readAsDataURL(file);
   };
@@ -170,24 +183,89 @@ export function LandingDemo() {
     setIsDragging(false);
   };
 
-  // Download HD image
-  const handleDownload = async () => {
-    setIsGenerating(true);
-    
+  // Generate HD image and return data URL
+  const generateHDImage = useCallback((): string | null => {
     const hdCanvas = document.createElement('canvas');
     hdCanvas.width = HD_WIDTH;
     hdCanvas.height = HD_HEIGHT;
     const ctx = hdCanvas.getContext('2d');
     
-    if (!ctx) {
+    if (!ctx) return null;
+
+    drawCanvas(ctx, HD_WIDTH, HD_HEIGHT);
+    return hdCanvas.toDataURL('image/png', 1.0);
+  }, [drawCanvas]);
+
+  // Save visual to Supabase (for public wall)
+  const saveToWall = async (imageDataUrl: string) => {
+    if (!userName) return;
+
+    setIsPublishing(true);
+    
+    try {
+      // Convert data URL to blob
+      const response = await fetch(imageDataUrl);
+      const blob = await response.blob();
+      const fileName = `demo/${Date.now()}-${Math.random().toString(36).substring(7)}.png`;
+      
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('campaign-images')
+        .upload(`public-visuals/${fileName}`, blob);
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('campaign-images')
+        .getPublicUrl(`public-visuals/${fileName}`);
+
+      // We need a real event to save to public_visuals
+      // First check if there's any active event to attach to
+      const { data: events } = await supabase
+        .from('events')
+        .select('id')
+        .eq('is_active', true)
+        .limit(1);
+
+      if (!events || events.length === 0) {
+        toast.info('Votre visuel a été créé ! Créez un compte pour le partager sur le mur social.');
+        return;
+      }
+
+      // Save to public_visuals table
+      const { error: insertError } = await supabase
+        .from('public_visuals')
+        .insert({
+          event_id: events[0].id,
+          creator_name: userName,
+          creator_photo: userPhotoBase64,
+          visual_url: urlData.publicUrl,
+        });
+
+      if (insertError) throw insertError;
+
+      toast.success('Publié sur le mur social !', {
+        description: 'Votre visuel est maintenant visible par tous.',
+      });
+
+    } catch (error) {
+      console.error('Error saving to wall:', error);
+      toast.error('Impossible de publier sur le mur social');
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  // Download HD image
+  const handleDownload = async () => {
+    setIsGenerating(true);
+    
+    const imageDataUrl = generateHDImage();
+    if (!imageDataUrl) {
       setIsGenerating(false);
       return;
     }
 
-    drawCanvas(ctx, HD_WIDTH, HD_HEIGHT);
-
-    // Store image URL for WhatsApp preview
-    const imageDataUrl = hdCanvas.toDataURL('image/png', 1.0);
     setGeneratedImageUrl(imageDataUrl);
 
     // Download
@@ -200,20 +278,18 @@ export function LandingDemo() {
     
     // Trigger confetti celebration!
     setShowConfetti(true);
+
+    // If user wants to publish, save to wall
+    if (wantPublic && userName) {
+      await saveToWall(imageDataUrl);
+    }
   };
 
   const handlePreviewWhatsApp = () => {
-    // Generate preview image first
-    const hdCanvas = document.createElement('canvas');
-    hdCanvas.width = HD_WIDTH;
-    hdCanvas.height = HD_HEIGHT;
-    const ctx = hdCanvas.getContext('2d');
-    
-    if (ctx) {
-      drawCanvas(ctx, HD_WIDTH, HD_HEIGHT);
-      setGeneratedImageUrl(hdCanvas.toDataURL('image/png', 0.8));
+    const imageDataUrl = generateHDImage();
+    if (imageDataUrl) {
+      setGeneratedImageUrl(imageDataUrl);
     }
-    
     setShowWhatsAppPreview(true);
   };
 
@@ -362,7 +438,7 @@ export function LandingDemo() {
               />
             </motion.div>
 
-            {/* Step 3: Download & Preview */}
+            {/* Step 3: Download & Share */}
             <motion.div 
               variants={fadeInUp}
               className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm"
@@ -374,14 +450,45 @@ export function LandingDemo() {
                 <h3 className="font-semibold text-slate-900">Téléchargez & Partagez !</h3>
               </div>
               
+              {/* Publish checkbox */}
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-violet-50/50 border border-violet-100 mb-4">
+                <Checkbox
+                  id="public-wall-demo"
+                  checked={wantPublic}
+                  onCheckedChange={(checked) => setWantPublic(checked === true)}
+                  className="mt-0.5"
+                />
+                <div className="space-y-1">
+                  <Label 
+                    htmlFor="public-wall-demo" 
+                    className="text-sm font-medium cursor-pointer flex items-center gap-2"
+                  >
+                    <Globe className="w-4 h-4 text-violet-600" />
+                    Publier sur le mur social
+                  </Label>
+                  <p className="text-xs text-slate-500">
+                    Votre visuel pourra être affiché sur notre page d'accueil
+                  </p>
+                </div>
+              </div>
+              
               <div className="space-y-3">
                 <Button
                   onClick={handleDownload}
-                  disabled={!userPhoto || isGenerating}
+                  disabled={!userPhoto || isGenerating || isPublishing}
                   className="w-full h-12 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white font-semibold rounded-xl shadow-lg shadow-violet-500/25"
                 >
-                  <Download className="w-5 h-5 mr-2" />
-                  {isGenerating ? 'Génération...' : 'Télécharger mon visuel HD'}
+                  {isGenerating || isPublishing ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      {isPublishing ? 'Publication...' : 'Génération...'}
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-5 h-5 mr-2" />
+                      Télécharger mon visuel HD
+                    </>
+                  )}
                 </Button>
                 
                 {/* WhatsApp Preview Button */}

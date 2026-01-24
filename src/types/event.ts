@@ -8,22 +8,22 @@ export interface Event {
   city: string;
   cover_image: string | null;
   frame_image: string;
-  qr_position_x: number;
-  qr_position_y: number;
-  ticket_price: number;
-  currency: string;
+  qr_position_x: number | null;
+  qr_position_y: number | null;
+  ticket_price: number | null;
+  currency: string | null;
   max_tickets: number | null;
-  is_active: boolean;
+  is_active: boolean | null;
   created_at: string;
   updated_at: string;
-  // Photo zone positioning
-  photo_zone_x: number;
-  photo_zone_y: number;
-  photo_zone_width: number;
-  photo_zone_height: number;
-  photo_zone_shape: 'rect' | 'circle';
-  name_zone_enabled: boolean;
-  name_zone_y: number;
+  // Photo zone positioning - all nullable like in Supabase
+  photo_zone_x: number | null;
+  photo_zone_y: number | null;
+  photo_zone_width: number | null;
+  photo_zone_height: number | null;
+  photo_zone_shape: string | null;
+  name_zone_enabled: boolean | null;
+  name_zone_y: number | null;
 }
 
 export interface PublicVisual {
@@ -33,9 +33,9 @@ export interface PublicVisual {
   creator_name: string;
   creator_photo: string | null;
   visual_url: string;
-  is_approved: boolean;
-  is_featured: boolean;
-  views: number;
+  is_approved: boolean | null;
+  is_featured: boolean | null;
+  views: number | null;
   created_at: string;
   event?: Event;
 }
