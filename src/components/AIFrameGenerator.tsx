@@ -19,7 +19,7 @@ interface AIFrameGeneratorProps {
 }
 
 type GenerationMode = 'overlay' | 'adapt' | 'regenerate';
-type AIProvider = 'lovable' | 'openai';
+type AIProvider = 'lovable' | 'gemini' | 'openai';
 
 // Helper function to convert blob URL or file to base64
 async function imageToBase64(imageUrl: string): Promise<string> {
@@ -88,6 +88,11 @@ export function AIFrameGenerator({
       name: 'Lovable AI (Gemini)',
       description: 'Gratuit avec votre plan',
       icon: <Sparkles className="w-4 h-4" />,
+    },
+    gemini: {
+      name: 'Google Gemini (Votre clé)',
+      description: 'Votre propre clé API',
+      icon: <Zap className="w-4 h-4" />,
     },
     openai: {
       name: 'OpenAI DALL-E 3',
@@ -412,7 +417,7 @@ export function AIFrameGenerator({
 
           {/* Info */}
           <p className="text-xs text-muted-foreground text-center">
-            Propulsé par {provider === 'openai' ? 'OpenAI DALL-E 3' : 'Lovable AI (Gemini)'}
+            Propulsé par {provider === 'openai' ? 'OpenAI DALL-E 3' : provider === 'gemini' ? 'Google Gemini (votre clé)' : 'Lovable AI (Gemini)'}
           </p>
         </div>
       </DialogContent>
