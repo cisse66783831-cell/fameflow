@@ -5,8 +5,9 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { Sparkles, Wand2, Loader2, ImagePlus, RefreshCw, Check, AlertCircle } from 'lucide-react';
+import { Sparkles, Wand2, Loader2, ImagePlus, RefreshCw, Check, AlertCircle, Zap, Bot } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface AIFrameGeneratorProps {
@@ -18,6 +19,36 @@ interface AIFrameGeneratorProps {
 }
 
 type GenerationMode = 'overlay' | 'adapt' | 'regenerate';
+type AIProvider = 'lovable' | 'openai';
+
+// Helper function to convert blob URL or file to base64
+async function imageToBase64(imageUrl: string): Promise<string> {
+  // If already a data URL, return as-is
+  if (imageUrl.startsWith('data:')) {
+    return imageUrl;
+  }
+
+  // If it's a blob URL or http URL, fetch and convert
+  try {
+    console.log('Converting image to base64:', imageUrl.substring(0, 50) + '...');
+    const response = await fetch(imageUrl);
+    const blob = await response.blob();
+    
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        console.log('Base64 conversion successful, length:', result.length);
+        resolve(result);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error('Error converting image to base64:', error);
+    throw new Error('Failed to process image');
+  }
+}
 
 export function AIFrameGenerator({
   isOpen,
@@ -27,6 +58,7 @@ export function AIFrameGenerator({
   onImageGenerated,
 }: AIFrameGeneratorProps) {
   const [mode, setMode] = useState<GenerationMode>('overlay');
+  const [provider, setProvider] = useState<AIProvider>('lovable');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [customPrompt, setCustomPrompt] = useState('');
@@ -48,6 +80,19 @@ export function AIFrameGenerator({
       title: 'Régénérer complètement',
       description: 'L\'IA va recréer votre affiche avec le même style mais optimisée pour les visuels "J\'y serai".',
       icon: <RefreshCw className="w-5 h-5" />,
+    },
+  };
+
+  const providerOptions: Record<AIProvider, { name: string; description: string; icon: React.ReactNode }> = {
+    lovable: {
+      name: 'Lovable AI (Gemini)',
+      description: 'Gratuit avec votre plan',
+      icon: <Sparkles className="w-4 h-4" />,
+    },
+    openai: {
+      name: 'OpenAI DALL-E 3',
+      description: 'Haute qualité (requiert clé API)',
+      icon: <Bot className="w-4 h-4" />,
     },
   };
 
@@ -91,24 +136,45 @@ export function AIFrameGenerator({
     setIsGenerating(true);
     setError(null);
     setGeneratedImage(null);
-    setGenerationProgress('Analyse de votre affiche...');
+    setGenerationProgress('Préparation de l\'image...');
 
     try {
-      // Simulate progress
+      // CRITICAL FIX: Convert blob URL to base64 before sending
+      setGenerationProgress('Conversion de l\'image...');
+      let imageToSend: string;
+      
+      try {
+        imageToSend = await imageToBase64(originalImage);
+        console.log('Image ready for API, type:', imageToSend.startsWith('data:') ? 'base64' : 'url');
+      } catch (convError) {
+        console.error('Image conversion failed:', convError);
+        throw new Error('Impossible de traiter l\'image. Veuillez réessayer.');
+      }
+
+      // Progress updates
+      setGenerationProgress('Analyse de votre affiche...');
       setTimeout(() => setGenerationProgress('Génération du design...'), 2000);
       setTimeout(() => setGenerationProgress('Application du style...'), 5000);
       setTimeout(() => setGenerationProgress('Finalisation...'), 8000);
 
+      console.log('Calling generate-overlay with provider:', provider);
+
       const { data, error: fnError } = await supabase.functions.invoke('generate-overlay', {
         body: {
           mode,
-          originalImageUrl: originalImage,
+          originalImageUrl: imageToSend,
           prompt: getPromptForMode(mode),
           eventTitle,
+          provider, // Send selected provider
         },
       });
 
-      if (fnError) throw fnError;
+      if (fnError) {
+        console.error('Function error:', fnError);
+        throw fnError;
+      }
+
+      console.log('Generation response:', data);
 
       if (data?.error) {
         // Handle rate limit and payment errors
@@ -124,13 +190,13 @@ export function AIFrameGenerator({
 
       if (data?.imageUrl) {
         setGeneratedImage(data.imageUrl);
-        toast.success('Image générée avec succès !');
+        toast.success(`Image générée avec ${data.provider || provider} !`);
       } else {
         throw new Error('Aucune image générée');
       }
     } catch (err) {
       console.error('Generation error:', err);
-      setError('Erreur lors de la génération. Veuillez réessayer.');
+      setError(err instanceof Error ? err.message : 'Erreur lors de la génération. Veuillez réessayer.');
       toast.error('Erreur de génération');
     } finally {
       setIsGenerating(false);
@@ -205,6 +271,27 @@ export function AIFrameGenerator({
           {/* Mode selection */}
           {!generatedImage && !error && !isGenerating && (
             <>
+              {/* Provider selector */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Modèle IA</Label>
+                <Select value={provider} onValueChange={(v) => setProvider(v as AIProvider)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(providerOptions) as AIProvider[]).map((p) => (
+                      <SelectItem key={p} value={p}>
+                        <div className="flex items-center gap-2">
+                          {providerOptions[p].icon}
+                          <span>{providerOptions[p].name}</span>
+                          <span className="text-muted-foreground text-xs">- {providerOptions[p].description}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="space-y-3">
                 <Label className="text-sm font-medium">Mode de génération</Label>
                 <RadioGroup
@@ -258,8 +345,8 @@ export function AIFrameGenerator({
                 className="w-full gap-2 gradient-primary text-white"
                 size="lg"
               >
-                <Sparkles className="w-5 h-5" />
-                Générer avec l'IA
+                <Zap className="w-5 h-5" />
+                Générer avec {providerOptions[provider].name}
               </Button>
             </>
           )}
@@ -325,7 +412,7 @@ export function AIFrameGenerator({
 
           {/* Info */}
           <p className="text-xs text-muted-foreground text-center">
-            Propulsé par Lovable AI. Vous pouvez connecter votre propre API dans les paramètres.
+            Propulsé par {provider === 'openai' ? 'OpenAI DALL-E 3' : 'Lovable AI (Gemini)'}
           </p>
         </div>
       </DialogContent>
