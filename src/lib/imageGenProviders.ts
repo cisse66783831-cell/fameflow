@@ -1,7 +1,7 @@
 // Image Generation Provider Configuration
 // This module allows switching between different AI providers for image generation
 
-export type ImageGenProvider = 'lovable' | 'openai' | 'replicate' | 'custom';
+export type ImageGenProvider = 'lovable' | 'gemini' | 'openai' | 'replicate' | 'custom';
 
 export interface ImageGenerationConfig {
   provider: ImageGenProvider;
@@ -26,6 +26,12 @@ export const providerConfigs: Record<ImageGenProvider, {
     name: 'Lovable AI',
     description: 'Gratuit avec votre plan Lovable. Utilise Gemini Flash.',
     requiresApiKey: false,
+  },
+  gemini: {
+    name: 'Google Gemini',
+    description: 'Utilisez votre propre clé API Gemini.',
+    requiresApiKey: true,
+    secretName: 'GEMINI_API_KEY',
   },
   openai: {
     name: 'OpenAI DALL-E',
