@@ -23,6 +23,13 @@ const mapDbToCampaign = (db: {
   created_at: string;
   updated_at: string;
   slug: string | null;
+  photo_zone_x: number | null;
+  photo_zone_y: number | null;
+  photo_zone_width: number | null;
+  photo_zone_height: number | null;
+  photo_zone_shape: string | null;
+  name_zone_enabled: boolean | null;
+  name_zone_y: number | null;
 }): Campaign => ({
   id: db.id,
   title: db.title,
@@ -39,6 +46,13 @@ const mapDbToCampaign = (db: {
   createdAt: new Date(db.created_at),
   isDemo: db.is_demo,
   slug: db.slug || undefined,
+  photoZoneX: db.photo_zone_x,
+  photoZoneY: db.photo_zone_y,
+  photoZoneWidth: db.photo_zone_width,
+  photoZoneHeight: db.photo_zone_height,
+  photoZoneShape: db.photo_zone_shape as 'rect' | 'circle' | null,
+  nameZoneEnabled: db.name_zone_enabled,
+  nameZoneY: db.name_zone_y,
 });
 
 export const useCampaigns = () => {
@@ -92,6 +106,13 @@ export const useCampaigns = () => {
         downloads: campaign.downloads,
         is_demo: campaign.isDemo || false,
         slug: campaign.slug || null,
+        photo_zone_x: campaign.photoZoneX ?? null,
+        photo_zone_y: campaign.photoZoneY ?? null,
+        photo_zone_width: campaign.photoZoneWidth ?? null,
+        photo_zone_height: campaign.photoZoneHeight ?? null,
+        photo_zone_shape: campaign.photoZoneShape ?? null,
+        name_zone_enabled: campaign.nameZoneEnabled ?? null,
+        name_zone_y: campaign.nameZoneY ?? null,
       })
       .select()
       .single();
@@ -118,6 +139,13 @@ export const useCampaigns = () => {
     if (updates.views !== undefined) dbUpdates.views = updates.views;
     if (updates.downloads !== undefined) dbUpdates.downloads = updates.downloads;
     if (updates.slug !== undefined) dbUpdates.slug = updates.slug;
+    if (updates.photoZoneX !== undefined) dbUpdates.photo_zone_x = updates.photoZoneX;
+    if (updates.photoZoneY !== undefined) dbUpdates.photo_zone_y = updates.photoZoneY;
+    if (updates.photoZoneWidth !== undefined) dbUpdates.photo_zone_width = updates.photoZoneWidth;
+    if (updates.photoZoneHeight !== undefined) dbUpdates.photo_zone_height = updates.photoZoneHeight;
+    if (updates.photoZoneShape !== undefined) dbUpdates.photo_zone_shape = updates.photoZoneShape;
+    if (updates.nameZoneEnabled !== undefined) dbUpdates.name_zone_enabled = updates.nameZoneEnabled;
+    if (updates.nameZoneY !== undefined) dbUpdates.name_zone_y = updates.nameZoneY;
 
     const { error } = await supabase
       .from('campaigns')

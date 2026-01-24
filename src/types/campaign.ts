@@ -37,6 +37,14 @@ export interface Campaign {
   // New fields for document system
   documentFormat?: DocumentFormat;
   documentCategory?: DocumentCategory;
+  // Photo zone fields for "J'y serai" campaigns
+  photoZoneX?: number | null;
+  photoZoneY?: number | null;
+  photoZoneWidth?: number | null;
+  photoZoneHeight?: number | null;
+  photoZoneShape?: 'rect' | 'circle' | null;
+  nameZoneEnabled?: boolean | null;
+  nameZoneY?: number | null;
 }
 
 export interface ParticipantData {

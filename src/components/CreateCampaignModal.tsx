@@ -17,7 +17,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Image, FileText, Upload, Sparkles, X, Loader2, Wand2, Video, AlertCircle, Check, Camera, Play, Square, ArrowRight } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Image, FileText, Upload, Sparkles, X, Loader2, Wand2, Video, AlertCircle, Check, Camera, Play, Square, ArrowRight, ChevronDown, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useStorage } from '@/hooks/useStorage';
@@ -25,6 +26,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { compressImage, needsCompression, formatFileSize } from '@/utils/imageCompression';
 import { DocumentFieldEditor } from './DocumentFieldEditor';
 import { DocumentTemplateSelector } from './DocumentTemplateSelector';
+import { PhotoZoneEditor } from './PhotoZoneEditor';
+import { AIFrameGenerator } from './AIFrameGenerator';
 import {
   Select,
   SelectContent,
@@ -92,6 +95,19 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [isDraggingField, setIsDraggingField] = useState(false);
   const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0, fieldX: 0, fieldY: 0 });
+  
+  // Photo zone state for "photo" type campaigns
+  const [showAIGenerator, setShowAIGenerator] = useState(false);
+  const [showPhotoZoneEditor, setShowPhotoZoneEditor] = useState(false);
+  const [photoZone, setPhotoZone] = useState({
+    x: 50,
+    y: 50,
+    width: 30,
+    height: 30,
+    shape: 'circle' as 'rect' | 'circle',
+    nameEnabled: true,
+    nameY: 85,
+  });
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -298,6 +314,14 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
         slug: slug.trim().toLowerCase() || undefined,
         documentFormat: type === 'document' ? documentFormat : undefined,
         documentCategory: type === 'document' ? documentCategory : undefined,
+        // Photo zone fields for photo type campaigns
+        photoZoneX: type === 'photo' ? photoZone.x : undefined,
+        photoZoneY: type === 'photo' ? photoZone.y : undefined,
+        photoZoneWidth: type === 'photo' ? photoZone.width : undefined,
+        photoZoneHeight: type === 'photo' ? photoZone.height : undefined,
+        photoZoneShape: type === 'photo' ? photoZone.shape : undefined,
+        nameZoneEnabled: type === 'photo' ? photoZone.nameEnabled : undefined,
+        nameZoneY: type === 'photo' ? photoZone.nameY : undefined,
       };
 
       onCreate(campaign);
@@ -337,6 +361,18 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
     setShowTemplateSelector(true);
     setSelectedFieldId(null);
     setIsDraggingField(false);
+    // Reset photo zone state
+    setShowAIGenerator(false);
+    setShowPhotoZoneEditor(false);
+    setPhotoZone({
+      x: 50,
+      y: 50,
+      width: 30,
+      height: 30,
+      shape: 'circle',
+      nameEnabled: true,
+      nameY: 85,
+    });
     onClose();
   };
 
@@ -822,12 +858,59 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
                 )}
               </div>
             ) : (
-              renderImageUpload(
-                type === 'photo' ? 'Image du cadre (PNG transparent)' : 'Image de fond',
-                frameImage,
-                () => { setFrameImage(''); setImageFile(null); },
-                'main'
-              )
+              <div className="space-y-4">
+                {renderImageUpload(
+                  type === 'photo' ? 'Image du cadre (PNG transparent)' : 'Image de fond',
+                  frameImage,
+                  () => { setFrameImage(''); setImageFile(null); },
+                  'main'
+                )}
+
+                {/* Photo Zone and AI options for photo type campaigns */}
+                {type === 'photo' && frameImage && (
+                  <div className="space-y-3">
+                    {/* AI Frame Generator Button */}
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowAIGenerator(true)}
+                      className="w-full gap-2 border-primary/50 hover:border-primary hover:bg-primary/5"
+                    >
+                      <Sparkles className="w-4 h-4 text-primary" />
+                      Adapter avec l'IA
+                    </Button>
+
+                    {/* Photo Zone Editor Collapsible */}
+                    <Collapsible open={showPhotoZoneEditor} onOpenChange={setShowPhotoZoneEditor}>
+                      <CollapsibleTrigger asChild>
+                        <Button variant="outline" className="w-full gap-2 justify-between">
+                          <div className="flex items-center gap-2">
+                            <User className="w-4 h-4" />
+                            Définir la zone photo "J'y serai"
+                          </div>
+                          <ChevronDown className={cn(
+                            "w-4 h-4 transition-transform",
+                            showPhotoZoneEditor && "rotate-180"
+                          )} />
+                        </Button>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="mt-3">
+                        <PhotoZoneEditor
+                          frameImage={frameImage}
+                          initialX={photoZone.x}
+                          initialY={photoZone.y}
+                          initialWidth={photoZone.width}
+                          initialHeight={photoZone.height}
+                          initialShape={photoZone.shape}
+                          nameZoneEnabled={photoZone.nameEnabled}
+                          nameZoneY={photoZone.nameY}
+                          onChange={(zone) => setPhotoZone(zone)}
+                          showActions={false}
+                        />
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Slug / Personalized Link */}
@@ -981,6 +1064,20 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+
+    {/* AI Frame Generator Modal */}
+    {type === 'photo' && frameImage && (
+      <AIFrameGenerator
+        isOpen={showAIGenerator}
+        onClose={() => setShowAIGenerator(false)}
+        originalImage={frameImage}
+        eventTitle={title || 'Ma campagne'}
+        onImageGenerated={(newImageUrl) => {
+          setFrameImage(newImageUrl);
+          toast.success('Image adaptée avec l\'IA !');
+        }}
+      />
+    )}
   </>
   );
 };
