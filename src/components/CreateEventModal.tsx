@@ -3,6 +3,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Event } from '@/types/event';
 import { QRPositionEditor } from '@/components/QRPositionEditor';
+import { PhotoZoneEditor } from '@/components/PhotoZoneEditor';
+import { AIFrameGenerator } from '@/components/AIFrameGenerator';
 import { ImageUploader } from '@/components/ImageUploader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,7 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, MapPin, Ticket, Image, QrCode, Loader2 } from 'lucide-react';
+import { Calendar, MapPin, Ticket, Image, QrCode, Loader2, User, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface CreateEventModalProps {
@@ -45,6 +47,7 @@ export function CreateEventModal({ isOpen, onClose, event, onSuccess }: CreateEv
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
+  const [showAIGenerator, setShowAIGenerator] = useState(false);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -60,6 +63,13 @@ export function CreateEventModal({ isOpen, onClose, event, onSuccess }: CreateEv
     is_active: true,
     qr_position_x: 50,
     qr_position_y: 50,
+    photo_zone_x: 50,
+    photo_zone_y: 50,
+    photo_zone_width: 30,
+    photo_zone_height: 30,
+    photo_zone_shape: 'circle' as 'rect' | 'circle',
+    name_zone_enabled: true,
+    name_zone_y: 85,
   });
 
   useEffect(() => {
@@ -78,6 +88,13 @@ export function CreateEventModal({ isOpen, onClose, event, onSuccess }: CreateEv
         is_active: event.is_active,
         qr_position_x: event.qr_position_x,
         qr_position_y: event.qr_position_y,
+        photo_zone_x: event.photo_zone_x ?? 50,
+        photo_zone_y: event.photo_zone_y ?? 50,
+        photo_zone_width: event.photo_zone_width ?? 30,
+        photo_zone_height: event.photo_zone_height ?? 30,
+        photo_zone_shape: event.photo_zone_shape ?? 'circle',
+        name_zone_enabled: event.name_zone_enabled ?? true,
+        name_zone_y: event.name_zone_y ?? 85,
       });
     } else {
       setFormData({
@@ -94,6 +111,13 @@ export function CreateEventModal({ isOpen, onClose, event, onSuccess }: CreateEv
         is_active: true,
         qr_position_x: 50,
         qr_position_y: 50,
+        photo_zone_x: 50,
+        photo_zone_y: 50,
+        photo_zone_width: 30,
+        photo_zone_height: 30,
+        photo_zone_shape: 'circle',
+        name_zone_enabled: true,
+        name_zone_y: 85,
       });
     }
     setActiveTab('details');
@@ -126,6 +150,13 @@ export function CreateEventModal({ isOpen, onClose, event, onSuccess }: CreateEv
       is_active: formData.is_active,
       qr_position_x: formData.qr_position_x,
       qr_position_y: formData.qr_position_y,
+      photo_zone_x: formData.photo_zone_x,
+      photo_zone_y: formData.photo_zone_y,
+      photo_zone_width: formData.photo_zone_width,
+      photo_zone_height: formData.photo_zone_height,
+      photo_zone_shape: formData.photo_zone_shape,
+      name_zone_enabled: formData.name_zone_enabled,
+      name_zone_y: formData.name_zone_y,
       user_id: user.id,
     };
 
@@ -173,7 +204,7 @@ export function CreateEventModal({ isOpen, onClose, event, onSuccess }: CreateEv
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
-          <TabsList className="grid grid-cols-3 w-full">
+          <TabsList className="grid grid-cols-4 w-full">
             <TabsTrigger value="details" className="flex items-center gap-1">
               <Calendar className="w-4 h-4" />
               <span className="hidden sm:inline">Détails</span>
@@ -181,6 +212,10 @@ export function CreateEventModal({ isOpen, onClose, event, onSuccess }: CreateEv
             <TabsTrigger value="design" className="flex items-center gap-1">
               <Image className="w-4 h-4" />
               <span className="hidden sm:inline">Design</span>
+            </TabsTrigger>
+            <TabsTrigger value="photo-zone" className="flex items-center gap-1">
+              <User className="w-4 h-4" />
+              <span className="hidden sm:inline">Zone Photo</span>
             </TabsTrigger>
             <TabsTrigger value="qr" className="flex items-center gap-1">
               <QrCode className="w-4 h-4" />
@@ -319,7 +354,52 @@ export function CreateEventModal({ isOpen, onClose, event, onSuccess }: CreateEv
               <p className="text-xs text-muted-foreground">
                 L'image de fond sur laquelle le QR code sera placé
               </p>
+              
+              {/* AI Adaptation Button */}
+              {formData.frame_image && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowAIGenerator(true)}
+                  className="w-full gap-2 mt-2"
+                >
+                  <Sparkles className="w-4 h-4 text-primary" />
+                  Adapter avec l'IA
+                </Button>
+              )}
             </div>
+          </TabsContent>
+
+          {/* Photo Zone Tab */}
+          <TabsContent value="photo-zone" className="space-y-4 mt-4">
+            {formData.frame_image ? (
+              <PhotoZoneEditor
+                frameImage={formData.frame_image}
+                initialX={formData.photo_zone_x}
+                initialY={formData.photo_zone_y}
+                initialWidth={formData.photo_zone_width}
+                initialHeight={formData.photo_zone_height}
+                initialShape={formData.photo_zone_shape}
+                nameZoneEnabled={formData.name_zone_enabled}
+                nameZoneY={formData.name_zone_y}
+                onChange={(zone) => setFormData({
+                  ...formData,
+                  photo_zone_x: zone.x,
+                  photo_zone_y: zone.y,
+                  photo_zone_width: zone.width,
+                  photo_zone_height: zone.height,
+                  photo_zone_shape: zone.shape,
+                  name_zone_enabled: zone.nameEnabled,
+                  name_zone_y: zone.nameY,
+                })}
+                showActions={false}
+              />
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <User className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>Ajoutez d'abord le design du ticket dans l'onglet Design</p>
+              </div>
+            )}
           </TabsContent>
 
           {/* QR Position Tab */}
@@ -355,6 +435,20 @@ export function CreateEventModal({ isOpen, onClose, event, onSuccess }: CreateEv
           </Button>
         </div>
       </DialogContent>
+
+      {/* AI Frame Generator Modal */}
+      {formData.frame_image && (
+        <AIFrameGenerator
+          isOpen={showAIGenerator}
+          onClose={() => setShowAIGenerator(false)}
+          originalImage={formData.frame_image}
+          eventTitle={formData.title || 'Mon événement'}
+          onImageGenerated={(newImageUrl) => {
+            setFormData({ ...formData, frame_image: newImageUrl });
+            toast.success('Design mis à jour avec l\'image générée !');
+          }}
+        />
+      )}
     </Dialog>
   );
 }
