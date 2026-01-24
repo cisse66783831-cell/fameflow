@@ -26,6 +26,13 @@ export type Database = {
           hashtags: string[]
           id: string
           is_demo: boolean
+          name_zone_enabled: boolean | null
+          name_zone_y: number | null
+          photo_zone_height: number | null
+          photo_zone_shape: string | null
+          photo_zone_width: number | null
+          photo_zone_x: number | null
+          photo_zone_y: number | null
           slug: string | null
           text_elements: Json
           title: string
@@ -45,6 +52,13 @@ export type Database = {
           hashtags?: string[]
           id?: string
           is_demo?: boolean
+          name_zone_enabled?: boolean | null
+          name_zone_y?: number | null
+          photo_zone_height?: number | null
+          photo_zone_shape?: string | null
+          photo_zone_width?: number | null
+          photo_zone_x?: number | null
+          photo_zone_y?: number | null
           slug?: string | null
           text_elements?: Json
           title: string
@@ -64,6 +78,13 @@ export type Database = {
           hashtags?: string[]
           id?: string
           is_demo?: boolean
+          name_zone_enabled?: boolean | null
+          name_zone_y?: number | null
+          photo_zone_height?: number | null
+          photo_zone_shape?: string | null
+          photo_zone_width?: number | null
+          photo_zone_x?: number | null
+          photo_zone_y?: number | null
           slug?: string | null
           text_elements?: Json
           title?: string
@@ -315,11 +336,75 @@ export type Database = {
         }
         Relationships: []
       }
+      public_videos: {
+        Row: {
+          campaign_id: string | null
+          created_at: string | null
+          creator_name: string
+          creator_photo: string | null
+          display_order: number | null
+          event_id: string | null
+          id: string
+          is_approved: boolean | null
+          is_featured: boolean | null
+          thumbnail_url: string | null
+          user_id: string | null
+          video_url: string
+          views: number | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          created_at?: string | null
+          creator_name: string
+          creator_photo?: string | null
+          display_order?: number | null
+          event_id?: string | null
+          id?: string
+          is_approved?: boolean | null
+          is_featured?: boolean | null
+          thumbnail_url?: string | null
+          user_id?: string | null
+          video_url: string
+          views?: number | null
+        }
+        Update: {
+          campaign_id?: string | null
+          created_at?: string | null
+          creator_name?: string
+          creator_photo?: string | null
+          display_order?: number | null
+          event_id?: string | null
+          id?: string
+          is_approved?: boolean | null
+          is_featured?: boolean | null
+          thumbnail_url?: string | null
+          user_id?: string | null
+          video_url?: string
+          views?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "public_videos_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "public_videos_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       public_visuals: {
         Row: {
           created_at: string
           creator_name: string
           creator_photo: string | null
+          display_order: number | null
           event_id: string
           id: string
           is_approved: boolean | null
@@ -332,6 +417,7 @@ export type Database = {
           created_at?: string
           creator_name: string
           creator_photo?: string | null
+          display_order?: number | null
           event_id: string
           id?: string
           is_approved?: boolean | null
@@ -344,6 +430,7 @@ export type Database = {
           created_at?: string
           creator_name?: string
           creator_photo?: string | null
+          display_order?: number | null
           event_id?: string
           id?: string
           is_approved?: boolean | null

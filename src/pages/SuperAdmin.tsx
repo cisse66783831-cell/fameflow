@@ -19,6 +19,7 @@ import { AdminEventList } from '@/components/admin/AdminEventList';
 import { AdminCampaignList } from '@/components/admin/AdminCampaignList';
 import { AdminTransactionList } from '@/components/admin/AdminTransactionList';
 import { AdminModerationPanel } from '@/components/admin/AdminModerationPanel';
+import { AdminLandingPagePanel } from '@/components/admin/AdminLandingPagePanel';
 import { AppRole } from '@/types/ticket';
 
 interface PlatformStats {
@@ -423,6 +424,7 @@ export default function SuperAdminPage() {
           <Tabs defaultValue="overview" className="space-y-6">
             <TabsList className="flex-wrap">
               <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
+              <TabsTrigger value="landing">Landing Page</TabsTrigger>
               <TabsTrigger value="users">Utilisateurs</TabsTrigger>
               <TabsTrigger value="events">Événements</TabsTrigger>
               <TabsTrigger value="campaigns">Campagnes</TabsTrigger>
@@ -529,6 +531,10 @@ export default function SuperAdminPage() {
                   </CardContent>
                 </Card>
               </div>
+            </TabsContent>
+
+            <TabsContent value="landing">
+              <AdminLandingPagePanel onRefresh={fetchVisuals} />
             </TabsContent>
 
             <TabsContent value="users">
