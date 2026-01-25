@@ -8,6 +8,7 @@ import {
   BarChart3, Share2, MessageCircle, Video, Image as ImageIcon
 } from 'lucide-react';
 import { SocialProofMasonry } from '@/components/SocialProofMasonry';
+import { FeaturedCampaignsPreview } from '@/components/FeaturedCampaignsPreview';
 import { LandingDemo } from '@/components/LandingDemo';
 // Animation variants
 const fadeInUp = {
@@ -477,49 +478,8 @@ export default function Landing() {
               </motion.div>
             </motion.div>
             
-            {/* Visual mockups */}
-            <motion.div 
-              variants={fadeInScale}
-              className="relative h-64 sm:h-80"
-            >
-              {/* Image mockup */}
-              <motion.div 
-                className="absolute left-4 sm:left-0 top-1/2 -translate-y-1/2 w-36 sm:w-48 h-48 sm:h-64 rounded-xl sm:rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-600 p-1 shadow-xl"
-                initial={{ rotate: -8 }}
-                whileHover={{ rotate: 0, scale: 1.05 }}
-                animate={{ y: [0, -10, 0] }}
-                transition={{ 
-                  y: { duration: 5, repeat: Infinity, ease: "easeInOut" },
-                  rotate: { type: "spring", stiffness: 300 }
-                }}
-              >
-                <div className="w-full h-full bg-white rounded-[10px] sm:rounded-[14px] flex items-center justify-center">
-                  <ImageIcon className="w-10 h-10 sm:w-12 sm:h-12 text-slate-200" />
-                </div>
-              </motion.div>
-              
-              {/* Video mockup */}
-              <motion.div 
-                className="absolute right-4 sm:right-0 top-1/2 -translate-y-1/2 w-40 sm:w-52 h-56 sm:h-72 rounded-xl sm:rounded-2xl bg-gradient-to-br from-cyan-500 to-sky-600 p-1 shadow-xl"
-                initial={{ rotate: 5 }}
-                whileHover={{ rotate: 0, scale: 1.05 }}
-                animate={{ y: [0, -12, 0] }}
-                transition={{ 
-                  y: { duration: 6, repeat: Infinity, ease: "easeInOut", delay: 1 },
-                  rotate: { type: "spring", stiffness: 300 }
-                }}
-              >
-                <div className="w-full h-full bg-white rounded-[10px] sm:rounded-[14px] flex items-center justify-center relative">
-                  <motion.div 
-                    className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-slate-100 flex items-center justify-center"
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    <Play className="w-6 h-6 sm:w-8 sm:h-8 text-slate-400 ml-1" />
-                  </motion.div>
-                </div>
-              </motion.div>
-            </motion.div>
+            {/* Visual mockups - Now uses featured campaigns */}
+            <FeaturedCampaignsPreview />
           </div>
         </div>
       </motion.section>
