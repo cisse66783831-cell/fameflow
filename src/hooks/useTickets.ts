@@ -133,25 +133,31 @@ export function useTickets(eventId?: string) {
     }
   };
 
-  const confirmPayment = async (ticketId: string, transactionId: string, reference: string) => {
+  // Secure server-side payment confirmation
+  const confirmPayment = async (ticketId: string, transactionId: string, _reference?: string) => {
     try {
-      // Update transaction
-      await supabase
-        .from('transactions')
-        .update({ status: 'completed', payment_reference: reference })
-        .eq('id', transactionId);
+      const { data, error } = await supabase.functions.invoke('confirm-payment', {
+        body: { ticketId, transactionId },
+      });
 
-      // Update ticket status
-      const { error } = await supabase
-        .from('tickets')
-        .update({ status: 'paid' })
-        .eq('id', ticketId);
+      if (error) {
+        console.error('Payment confirmation error:', error);
+        toast.error(error.message || 'Erreur lors de la confirmation');
+        return false;
+      }
 
-      if (error) throw error;
+      if (data?.success) {
+        if (data.status === 'pending_verification') {
+          toast.info(data.message || 'Paiement en cours de vérification');
+        } else {
+          toast.success('Paiement confirmé !');
+        }
+        await fetchTickets();
+        return true;
+      }
 
-      toast.success('Paiement confirmé ! Votre ticket est prêt.');
-      await fetchTickets();
-      return true;
+      toast.error(data?.error || 'Échec de la confirmation');
+      return false;
     } catch (error) {
       console.error('Error confirming payment:', error);
       toast.error('Erreur lors de la confirmation du paiement');

@@ -154,20 +154,19 @@ export function TicketPurchaseModal({
 
     setIsProcessing(true);
 
-    // Simulate payment confirmation (in production, this would be a webhook)
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      // Call secure server-side payment confirmation
+      const success = await confirmPayment(createdTicketId, transactionId);
 
-    const success = await confirmPayment(
-      createdTicketId,
-      transactionId,
-      `PAY-${Date.now()}`
-    );
-
-    setIsProcessing(false);
-
-    if (success) {
-      setStep('success');
-      onSuccess?.();
+      if (success) {
+        setStep('success');
+        onSuccess?.();
+      }
+    } catch (error) {
+      console.error('Payment confirmation error:', error);
+      toast.error('Une erreur est survenue lors de la confirmation');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
