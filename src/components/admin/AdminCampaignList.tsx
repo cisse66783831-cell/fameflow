@@ -150,10 +150,10 @@ export function AdminCampaignList({ campaigns, onRefresh, isLoading }: AdminCamp
                       <Download className="w-4 h-4 text-muted-foreground" />
                       <span className="font-medium">{(campaign.downloads || 0).toLocaleString()}</span>
                     </div>
-                    <Badge variant={Number(convRate) > 10 ? "default" : "secondary"} className="flex items-center gap-1">
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${Number(convRate) > 10 ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}>
                       <TrendingUp className="w-3 h-3" />
                       {convRate}%
-                    </Badge>
+                    </span>
                     <p className="text-xs text-muted-foreground">
                       {new Date(campaign.created_at).toLocaleDateString('fr-FR')}
                     </p>
