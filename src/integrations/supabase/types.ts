@@ -19,6 +19,7 @@ export type Database = {
           background_image: string | null
           created_at: string
           description: string | null
+          display_order: number | null
           downloads: number
           frame_image: string
           frame_image_landscape: string | null
@@ -26,6 +27,7 @@ export type Database = {
           hashtags: string[]
           id: string
           is_demo: boolean
+          is_featured: boolean | null
           name_zone_enabled: boolean | null
           name_zone_y: number | null
           photo_zone_height: number | null
@@ -45,6 +47,7 @@ export type Database = {
           background_image?: string | null
           created_at?: string
           description?: string | null
+          display_order?: number | null
           downloads?: number
           frame_image: string
           frame_image_landscape?: string | null
@@ -52,6 +55,7 @@ export type Database = {
           hashtags?: string[]
           id?: string
           is_demo?: boolean
+          is_featured?: boolean | null
           name_zone_enabled?: boolean | null
           name_zone_y?: number | null
           photo_zone_height?: number | null
@@ -71,6 +75,7 @@ export type Database = {
           background_image?: string | null
           created_at?: string
           description?: string | null
+          display_order?: number | null
           downloads?: number
           frame_image?: string
           frame_image_landscape?: string | null
@@ -78,6 +83,7 @@ export type Database = {
           hashtags?: string[]
           id?: string
           is_demo?: boolean
+          is_featured?: boolean | null
           name_zone_enabled?: boolean | null
           name_zone_y?: number | null
           photo_zone_height?: number | null

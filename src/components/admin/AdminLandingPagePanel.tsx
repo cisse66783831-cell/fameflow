@@ -9,7 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { 
   Star, StarOff, Image, Video, Search, ArrowUp, ArrowDown, 
-  Trash2, Eye, Loader2, RefreshCw, Layout, Sparkles 
+  Trash2, Eye, Loader2, RefreshCw, Layout, Sparkles, Megaphone
 } from 'lucide-react';
 
 interface PublicVisual {
@@ -35,6 +35,18 @@ interface PublicVideo {
   created_at: string;
 }
 
+interface FeaturedCampaign {
+  id: string;
+  title: string;
+  slug: string | null;
+  frame_image: string | null;
+  is_featured: boolean;
+  display_order: number;
+  views: number;
+  downloads: number;
+  created_at: string;
+}
+
 interface AdminLandingPagePanelProps {
   onRefresh: () => void;
 }
@@ -44,6 +56,8 @@ export function AdminLandingPagePanel({ onRefresh }: AdminLandingPagePanelProps)
   const [allVisuals, setAllVisuals] = useState<PublicVisual[]>([]);
   const [featuredVideos, setFeaturedVideos] = useState<PublicVideo[]>([]);
   const [allVideos, setAllVideos] = useState<PublicVideo[]>([]);
+  const [featuredCampaigns, setFeaturedCampaigns] = useState<FeaturedCampaign[]>([]);
+  const [allCampaigns, setAllCampaigns] = useState<FeaturedCampaign[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -74,6 +88,15 @@ export function AdminLandingPagePanel({ onRefresh }: AdminLandingPagePanelProps)
 
       setAllVideos(videosData || []);
       setFeaturedVideos((videosData || []).filter(v => v.is_featured));
+
+      // Fetch all campaigns
+      const { data: campaignsData } = await supabase
+        .from('campaigns')
+        .select('id, title, slug, frame_image, is_featured, display_order, views, downloads, created_at')
+        .order('display_order', { ascending: true });
+
+      setAllCampaigns(campaignsData || []);
+      setFeaturedCampaigns((campaignsData || []).filter(c => c.is_featured));
     } catch (error) {
       console.error('Error fetching landing page data:', error);
     } finally {
@@ -179,12 +202,66 @@ export function AdminLandingPagePanel({ onRefresh }: AdminLandingPagePanelProps)
     }
   };
 
+  const toggleFeatureCampaign = async (campaign: FeaturedCampaign) => {
+    setProcessingId(campaign.id);
+    try {
+      const { error } = await supabase
+        .from('campaigns')
+        .update({ 
+          is_featured: !campaign.is_featured,
+          display_order: !campaign.is_featured ? 0 : 999 
+        })
+        .eq('id', campaign.id);
+
+      if (error) throw error;
+      
+      toast.success(campaign.is_featured ? 'Campagne retirée de la landing' : 'Campagne mise en avant');
+      fetchData();
+      onRefresh();
+    } catch (error) {
+      console.error('Error toggling campaign feature:', error);
+      toast.error('Erreur lors de la modification');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const moveCampaign = async (campaign: FeaturedCampaign, direction: 'up' | 'down') => {
+    const featuredList = [...featuredCampaigns].sort((a, b) => a.display_order - b.display_order);
+    const currentIndex = featuredList.findIndex(c => c.id === campaign.id);
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    
+    if (targetIndex < 0 || targetIndex >= featuredList.length) return;
+
+    const targetCampaign = featuredList[targetIndex];
+    
+    setProcessingId(campaign.id);
+    try {
+      await Promise.all([
+        supabase.from('campaigns').update({ display_order: targetCampaign.display_order }).eq('id', campaign.id),
+        supabase.from('campaigns').update({ display_order: campaign.display_order }).eq('id', targetCampaign.id)
+      ]);
+      
+      fetchData();
+    } catch (error) {
+      console.error('Error reordering campaigns:', error);
+      toast.error('Erreur lors du réordonnement');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   const filteredVisuals = allVisuals.filter(v => 
     v.creator_name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const filteredVideos = allVideos.filter(v => 
     v.creator_name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredCampaigns = allCampaigns.filter(c => 
+    c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.slug?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   if (isLoading) {
@@ -238,8 +315,16 @@ export function AdminLandingPagePanel({ onRefresh }: AdminLandingPagePanelProps)
             <p className="text-xs text-muted-foreground">Vidéos approuvées</p>
           </CardContent>
         </Card>
+        <Card className="bg-card/50 border-border/50">
+          <CardContent className="p-4 text-center">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Megaphone className="w-5 h-5 text-primary" />
+              <span className="text-2xl font-bold">{featuredCampaigns.length}</span>
+            </div>
+            <p className="text-xs text-muted-foreground">Campagnes en avant</p>
+          </CardContent>
+        </Card>
       </div>
-
       <Tabs defaultValue="visuals" className="space-y-4">
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
           <TabsList>
@@ -251,13 +336,17 @@ export function AdminLandingPagePanel({ onRefresh }: AdminLandingPagePanelProps)
               <Video className="w-4 h-4" />
               Vidéos
             </TabsTrigger>
+            <TabsTrigger value="campaigns" className="gap-2">
+              <Megaphone className="w-4 h-4" />
+              Campagnes
+            </TabsTrigger>
           </TabsList>
           
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <div className="relative flex-1 sm:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input 
-                placeholder="Rechercher par nom..."
+                placeholder="Rechercher..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
@@ -268,7 +357,6 @@ export function AdminLandingPagePanel({ onRefresh }: AdminLandingPagePanelProps)
             </Button>
           </div>
         </div>
-
         <TabsContent value="visuals" className="space-y-6">
           {/* Featured Visuals Section */}
           <Card className="bg-card/50 border-border/50">
@@ -525,6 +613,141 @@ export function AdminLandingPagePanel({ onRefresh }: AdminLandingPagePanelProps)
                   ))}
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Campaigns Tab */}
+        <TabsContent value="campaigns" className="space-y-6">
+          {/* Featured Campaigns Section */}
+          <Card className="bg-card/50 border-border/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-primary" />
+                Campagnes mises en avant sur la landing
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {featuredCampaigns.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">
+                  Aucune campagne mise en avant. Cliquez sur l'étoile d'une campagne ci-dessous pour la mettre en avant.
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                  {featuredCampaigns.map((campaign, index) => (
+                    <div key={campaign.id} className="relative group">
+                      <div className="aspect-square rounded-lg overflow-hidden bg-secondary">
+                        {campaign.frame_image ? (
+                          <img 
+                            src={campaign.frame_image} 
+                            alt={campaign.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Megaphone className="w-8 h-8 text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+                      <Badge className="absolute top-2 left-2 text-xs" variant="secondary">
+                        #{index + 1}
+                      </Badge>
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+                        <Button 
+                          size="icon" 
+                          variant="secondary"
+                          onClick={() => moveCampaign(campaign, 'up')}
+                          disabled={index === 0 || processingId === campaign.id}
+                          className="w-8 h-8"
+                        >
+                          <ArrowUp className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          size="icon" 
+                          variant="secondary"
+                          onClick={() => moveCampaign(campaign, 'down')}
+                          disabled={index === featuredCampaigns.length - 1 || processingId === campaign.id}
+                          className="w-8 h-8"
+                        >
+                          <ArrowDown className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          size="icon" 
+                          variant="destructive"
+                          onClick={() => toggleFeatureCampaign(campaign)}
+                          disabled={processingId === campaign.id}
+                          className="w-8 h-8"
+                        >
+                          <StarOff className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <p className="text-xs text-center mt-1 truncate">{campaign.title}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* All Campaigns */}
+          <Card className="bg-card/50 border-border/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Megaphone className="w-5 h-5 text-muted-foreground" />
+                Toutes les campagnes ({filteredCampaigns.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 max-h-96 overflow-y-auto">
+                {filteredCampaigns.map((campaign) => (
+                  <div key={campaign.id} className="relative group cursor-pointer">
+                    <div className="aspect-square rounded-lg overflow-hidden bg-secondary">
+                      {campaign.frame_image ? (
+                        <img 
+                          src={campaign.frame_image} 
+                          alt={campaign.title}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Megaphone className="w-8 h-8 text-muted-foreground" />
+                        </div>
+                      )}
+                    </div>
+                    {campaign.is_featured && (
+                      <Badge className="absolute top-2 left-2 bg-primary text-xs">
+                        <Star className="w-3 h-3 mr-1 fill-current" />
+                        En avant
+                      </Badge>
+                    )}
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                      <Button 
+                        size="sm"
+                        variant={campaign.is_featured ? "destructive" : "default"}
+                        onClick={() => toggleFeatureCampaign(campaign)}
+                        disabled={processingId === campaign.id}
+                        className="gap-1"
+                      >
+                        {processingId === campaign.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : campaign.is_featured ? (
+                          <>
+                            <StarOff className="w-4 h-4" />
+                            Retirer
+                          </>
+                        ) : (
+                          <>
+                            <Star className="w-4 h-4" />
+                            Mettre en avant
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-center mt-1 truncate">{campaign.title}</p>
+                    <p className="text-[10px] text-center text-muted-foreground">/{campaign.slug}</p>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

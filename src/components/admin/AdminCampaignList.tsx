@@ -14,7 +14,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Image, Search, Trash2, RefreshCw, Loader2, Eye, Download, ExternalLink, User, TrendingUp } from 'lucide-react';
+import { Image, Search, Trash2, RefreshCw, Loader2, Eye, Download, ExternalLink, User, TrendingUp, Star, StarOff } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
@@ -22,6 +22,8 @@ interface Campaign {
   id: string;
   title: string;
   slug: string | null;
+  frame_image: string | null;
+  is_featured: boolean;
   views: number | null;
   downloads: number | null;
   created_at: string;
@@ -38,6 +40,7 @@ interface AdminCampaignListProps {
 export function AdminCampaignList({ campaigns, onRefresh, isLoading }: AdminCampaignListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [deletingCampaignId, setDeletingCampaignId] = useState<string | null>(null);
+  const [featuringId, setFeaturingId] = useState<string | null>(null);
 
   const filteredCampaigns = campaigns.filter(campaign => 
     campaign.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -61,6 +64,28 @@ export function AdminCampaignList({ campaigns, onRefresh, isLoading }: AdminCamp
       toast.error('Erreur lors de la suppression');
     } finally {
       setDeletingCampaignId(null);
+    }
+  };
+
+  const handleToggleFeature = async (campaign: Campaign) => {
+    setFeaturingId(campaign.id);
+    try {
+      const { error } = await supabase
+        .from('campaigns')
+        .update({ 
+          is_featured: !campaign.is_featured,
+          display_order: !campaign.is_featured ? 0 : 999 
+        })
+        .eq('id', campaign.id);
+
+      if (error) throw error;
+      toast.success(campaign.is_featured ? 'Retiré de la landing' : 'Mis en avant sur la landing');
+      onRefresh();
+    } catch (error) {
+      console.error('Error toggling feature:', error);
+      toast.error('Erreur lors de la modification');
+    } finally {
+      setFeaturingId(null);
     }
   };
 
@@ -124,11 +149,29 @@ export function AdminCampaignList({ campaigns, onRefresh, isLoading }: AdminCamp
                   className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 rounded-lg bg-background/50 border border-border/30 hover:border-primary/30 transition-colors"
                 >
                   <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                      <Image className="w-5 h-5 text-primary" />
+                    <div className="w-12 h-12 rounded-lg overflow-hidden bg-secondary shrink-0">
+                      {campaign.frame_image ? (
+                        <img 
+                          src={campaign.frame_image} 
+                          alt={campaign.title}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-primary/10">
+                          <Image className="w-5 h-5 text-primary" />
+                        </div>
+                      )}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-medium truncate">{campaign.title}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium truncate">{campaign.title}</p>
+                        {campaign.is_featured && (
+                          <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 border-amber-200">
+                            <Star className="w-3 h-3 mr-1 fill-amber-500" />
+                            En avant
+                          </Badge>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <span className="truncate">/{campaign.slug}</span>
                         {campaign.owner_name && (
@@ -161,9 +204,25 @@ export function AdminCampaignList({ campaigns, onRefresh, isLoading }: AdminCamp
 
                   <div className="flex items-center gap-2">
                     <Button 
+                      variant={campaign.is_featured ? "default" : "outline"}
+                      size="icon"
+                      onClick={() => handleToggleFeature(campaign)}
+                      disabled={featuringId === campaign.id}
+                      title={campaign.is_featured ? "Retirer de la landing" : "Mettre en avant"}
+                      className={campaign.is_featured ? "bg-amber-500 hover:bg-amber-600" : ""}
+                    >
+                      {featuringId === campaign.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : campaign.is_featured ? (
+                        <StarOff className="w-4 h-4" />
+                      ) : (
+                        <Star className="w-4 h-4" />
+                      )}
+                    </Button>
+                    <Button 
                       variant="outline" 
                       size="icon"
-                      onClick={() => window.open(`/c/${campaign.slug}`, '_blank')}
+                      onClick={() => window.open(`/${campaign.slug}`, '_blank')}
                       title="Voir sur le site"
                     >
                       <ExternalLink className="w-4 h-4" />
