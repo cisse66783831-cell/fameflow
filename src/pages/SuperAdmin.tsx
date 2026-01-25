@@ -216,7 +216,7 @@ export default function SuperAdminPage() {
     // Fetch campaigns with profile info
     const { data: campaignsData } = await supabase
       .from('campaigns')
-      .select('id, title, slug, views, created_at, user_id')
+      .select('id, title, slug, views, created_at, user_id, frame_image, is_featured, display_order')
       .order('created_at', { ascending: false });
 
     // Fetch real download counts from download_stats (source of truth)
