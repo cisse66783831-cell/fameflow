@@ -1048,10 +1048,9 @@ export const VideoRecorder = ({
       });
       
       mediaRecorder.start(100);
-      await video.play();
       
-      // Attendre la première frame puis démarrer l'audio synchronisé
-      await new Promise(resolve => requestAnimationFrame(resolve));
+      // Start video and audio simultaneously for perfect sync
+      await video.play();
       if (audioBufferSource) {
         audioBufferSource.start(0);
       }
