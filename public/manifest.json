@@ -1,0 +1,13 @@
+{
+  "name": "Jyserai - Montrez que vous y serez",
+  "short_name": "Jyserai",
+  "description": "Créez des visuels viraux, partagez votre enthousiasme et achetez vos tickets en un clic",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0A0F",
+  "theme_color": "#8B5CF6",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

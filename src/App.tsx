@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-
 import { AuthProvider } from "@/hooks/useAuth";
 import { HelmetProvider } from "react-helmet-async";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { CookieConsent } from "@/components/CookieConsent";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -22,6 +23,8 @@ import CampaignBySlugPage from "./pages/CampaignBySlug";
 import SharedVisualPage from "./pages/SharedVisual";
 import CGV from "./pages/CGV";
 import RefundPolicy from "./pages/RefundPolicy";
+import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
 import NotFound from "./pages/NotFound";
@@ -67,6 +70,8 @@ const App = () => (
                 {/* Legal & Institutional pages */}
                 <Route path="/cgv" element={<CGV />} />
                 <Route path="/politique-remboursement" element={<RefundPolicy />} />
+                <Route path="/privacy" element={<Privacy />} />
+                <Route path="/terms" element={<Terms />} />
                 <Route path="/a-propos" element={<About />} />
                 <Route path="/contact" element={<Contact />} />
                 {/* Redirect old /v/:slug to unified /:slug */}
@@ -79,6 +84,7 @@ const App = () => (
                 <Route path="/500" element={<ServerError />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              <CookieConsent />
             </BrowserRouter>
           </AuthProvider>
         </ErrorBoundary>
