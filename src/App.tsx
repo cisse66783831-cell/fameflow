@@ -19,6 +19,7 @@ import ScannerPage from "./pages/Scanner";
 import TicketPurchasePage from "./pages/TicketPurchase";
 import SuperAdminPage from "./pages/SuperAdmin";
 import CampaignBySlugPage from "./pages/CampaignBySlug";
+import SharedVisualPage from "./pages/SharedVisual";
 import CGV from "./pages/CGV";
 import RefundPolicy from "./pages/RefundPolicy";
 import About from "./pages/About";
@@ -70,6 +71,8 @@ const App = () => (
                 <Route path="/contact" element={<Contact />} />
                 {/* Redirect old /v/:slug to unified /:slug */}
                 <Route path="/v/:slug" element={<VideoSlugRedirect />} />
+                {/* Shared visual page for OG meta tags */}
+                <Route path="/share/:id" element={<SharedVisualPage />} />
                 <Route path="/c/:id" element={<CampaignPage />} />
                 <Route path="/:slug" element={<CampaignBySlugPage />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

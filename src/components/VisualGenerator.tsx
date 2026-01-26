@@ -7,7 +7,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Event } from '@/types/event';
-import { Camera, Upload, Download, Share2, Loader2, Sparkles, X, Globe } from 'lucide-react';
+import { createSharedVisual, getShareUrl } from '@/hooks/useSharedVisual';
+import { Camera, Upload, Download, Share2, Loader2, Sparkles, X, Globe, Link2 } from 'lucide-react';
 
 interface VisualGeneratorProps {
   event: Event;
@@ -31,6 +32,8 @@ export function VisualGenerator({ event, isOpen, onClose, onVisualCreated }: Vis
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [wantPublic, setWantPublic] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [isCreatingShareLink, setIsCreatingShareLink] = useState(false);
 
   // Résolutions pour export HD
   const EXPORT_SIZE = 2160; // 2160x2160 pour une qualité Instagram HD
@@ -220,25 +223,69 @@ export function VisualGenerator({ event, isOpen, onClose, onVisualCreated }: Vis
   };
 
   const handleShare = async () => {
-    if (!generatedVisual) return;
+    if (!generatedVisual || !name) return;
+
+    setIsCreatingShareLink(true);
 
     try {
+      // Create blob from generated visual
       const blob = await (await fetch(generatedVisual)).blob();
-      const file = new File([blob], 'jyserai.png', { type: 'image/png' });
+      
+      // Create a shareable link with OG meta tags
+      const sharePath = await createSharedVisual({
+        eventId: event.id,
+        creatorName: name,
+        visualBlob: blob,
+        description: `${name} sera à ${event.title} ! Rejoins-moi.`,
+      });
 
-      if (navigator.share && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          title: `${name} sera à ${event.title}`,
-          text: `J'y serai ! 🎉 #${event.title.replace(/\s+/g, '')}`,
-          files: [file],
-        });
+      if (sharePath) {
+        const fullShareUrl = `${window.location.origin}${sharePath}`;
+        setShareUrl(fullShareUrl);
+        
+        // Try native share with the URL
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: `${name} sera à ${event.title}`,
+              text: `J'y serai ! 🎉 Rejoins-moi à ${event.title}`,
+              url: fullShareUrl,
+            });
+          } catch (shareError) {
+            // User cancelled or share failed, copy to clipboard instead
+            await navigator.clipboard.writeText(fullShareUrl);
+            toast({
+              title: 'Lien copié !',
+              description: 'Le lien de partage a été copié dans le presse-papiers',
+            });
+          }
+        } else {
+          // Fallback: copy to clipboard
+          await navigator.clipboard.writeText(fullShareUrl);
+          toast({
+            title: 'Lien copié !',
+            description: 'Le lien de partage a été copié dans le presse-papiers',
+          });
+        }
       } else {
-        handleDownload();
+        // Fallback to file sharing if link creation fails
+        const file = new File([blob], 'jyserai.png', { type: 'image/png' });
+        if (navigator.share && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            title: `${name} sera à ${event.title}`,
+            text: `J'y serai ! 🎉 #${event.title.replace(/\s+/g, '')}`,
+            files: [file],
+          });
+        } else {
+          handleDownload();
+        }
       }
     } catch (error) {
       console.error('Error sharing:', error);
       handleDownload();
     }
+
+    setIsCreatingShareLink(false);
   };
 
   const saveToWall = async () => {
@@ -447,8 +494,13 @@ export function VisualGenerator({ event, isOpen, onClose, onVisualCreated }: Vis
                 <Button
                   className="flex-1 btn-neon-cyan bg-accent text-accent-foreground"
                   onClick={handleShare}
+                  disabled={isCreatingShareLink}
                 >
-                  <Share2 className="w-4 h-4 mr-2" />
+                  {isCreatingShareLink ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Share2 className="w-4 h-4 mr-2" />
+                  )}
                   Partager
                 </Button>
                 {wantPublic && (
