@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useUserRoles } from '@/hooks/useUserRoles';
 import { supabase } from '@/integrations/supabase/client';
 import { Event } from '@/types/event';
 import { QRPositionEditor } from '@/components/QRPositionEditor';
@@ -45,6 +46,7 @@ const currencies = [
 
 export function CreateEventModal({ isOpen, onClose, event, onSuccess }: CreateEventModalProps) {
   const { user } = useAuth();
+  const { isSuperAdmin } = useUserRoles();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
   const [showAIGenerator, setShowAIGenerator] = useState(false);
@@ -355,8 +357,8 @@ export function CreateEventModal({ isOpen, onClose, event, onSuccess }: CreateEv
                 L'image de fond sur laquelle le QR code sera placé
               </p>
               
-              {/* AI Adaptation Button */}
-              {formData.frame_image && (
+              {/* AI Adaptation Button - Super Admin only */}
+              {formData.frame_image && isSuperAdmin() && (
                 <Button
                   type="button"
                   variant="outline"
