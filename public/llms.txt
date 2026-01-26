@@ -1,0 +1,25 @@
+# Jyserai
+
+> Platform for creating viral "J'y serai" (I'll be there) visual content for events
+
+## Overview
+Jyserai is a web application that allows users to create personalized event visuals, purchase tickets, and share their attendance on social media. Users can upload photos, apply event-themed frames, and generate shareable content.
+
+## Key Features
+- Visual generator with customizable photo frames for events
+- Ticket purchasing and digital wallet management
+- QR code ticket scanning for event check-in
+- Campaign management for event organizers
+- Social sharing with optimized OG meta tags
+- AI-powered frame generation for event posters
+
+## Important Routes
+- / - Landing page
+- /events - Browse public events
+- /dashboard - User dashboard
+- /wallet - Digital ticket wallet
+- /auth - Authentication
+- /:slug - Campaign/event pages by slug
+
+## Technology
+Built with React, TypeScript, Tailwind CSS, and Supabase backend.

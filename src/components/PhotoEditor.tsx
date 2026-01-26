@@ -367,69 +367,22 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
                 return;
               } catch (e) {
                 // User cancelled or error - fallback to new tab method
-                if ((e as Error).name !== 'AbortError') {
-                  console.log('Share failed, falling back to new tab method');
-                }
               }
             }
           }
 
-          // Fallback: Open in new tab with instructions
+          // Fallback: Open image directly in new tab for saving
           const url = URL.createObjectURL(blob);
-          const newWindow = window.open('', '_blank');
-          if (newWindow) {
-            newWindow.document.write(`
-              <!DOCTYPE html>
-              <html>
-                <head>
-                  <title>Enregistrer l'image</title>
-                  <meta name="viewport" content="width=device-width, initial-scale=1">
-                  <style>
-                    * { box-sizing: border-box; margin: 0; padding: 0; }
-                    body { 
-                      background: #000; 
-                      min-height: 100vh;
-                      display: flex;
-                      flex-direction: column;
-                      align-items: center;
-                      padding: 20px;
-                      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-                    }
-                    .instructions {
-                      color: white;
-                      text-align: center;
-                      padding: 20px;
-                      font-size: 16px;
-                      line-height: 1.6;
-                      max-width: 300px;
-                    }
-                    .highlight {
-                      color: #007AFF;
-                      font-weight: 600;
-                    }
-                    .emoji { font-size: 24px; margin-bottom: 10px; display: block; }
-                    img { 
-                      max-width: 100%; 
-                      max-height: 70vh;
-                      border-radius: 12px;
-                      margin-top: 20px;
-                    }
-                  </style>
-                </head>
-                <body>
-                  <div class="instructions">
-                    <span class="emoji">📱</span>
-                    <p><span class="highlight">Appuyez longuement</span> sur l'image</p>
-                    <p style="margin-top: 8px;">Puis sélectionnez <span class="highlight">"Ajouter aux photos"</span></p>
-                  </div>
-                  <img src="${url}" alt="Image à télécharger"/>
-                </body>
-              </html>
-            `);
-            newWindow.document.close();
-          } else {
-            // If popup blocked, open URL directly
-            window.location.href = url;
+          const newWindow = window.open(url, '_blank');
+          
+          if (!newWindow) {
+            // If popup blocked, try download link
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${campaign.title.replace(/\s+/g, '-')}-HD.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
           }
           
           onDownload();
@@ -577,9 +530,6 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
               return;
             } catch (e) {
               // User cancelled or error - fallback to new tab method
-              if ((e as Error).name !== 'AbortError') {
-                console.log('Share failed, falling back to new tab method');
-              }
             }
           }
         }

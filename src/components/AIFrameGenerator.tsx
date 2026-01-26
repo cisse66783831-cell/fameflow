@@ -30,7 +30,6 @@ async function imageToBase64(imageUrl: string): Promise<string> {
 
   // If it's a blob URL or http URL, fetch and convert
   try {
-    console.log('Converting image to base64:', imageUrl.substring(0, 50) + '...');
     const response = await fetch(imageUrl);
     const blob = await response.blob();
     
@@ -38,14 +37,12 @@ async function imageToBase64(imageUrl: string): Promise<string> {
       const reader = new FileReader();
       reader.onloadend = () => {
         const result = reader.result as string;
-        console.log('Base64 conversion successful, length:', result.length);
         resolve(result);
       };
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
   } catch (error) {
-    console.error('Error converting image to base64:', error);
     throw new Error('Failed to process image');
   }
 }
@@ -150,9 +147,7 @@ export function AIFrameGenerator({
       
       try {
         imageToSend = await imageToBase64(originalImage);
-        console.log('Image ready for API, type:', imageToSend.startsWith('data:') ? 'base64' : 'url');
       } catch (convError) {
-        console.error('Image conversion failed:', convError);
         throw new Error('Impossible de traiter l\'image. Veuillez réessayer.');
       }
 
@@ -161,8 +156,6 @@ export function AIFrameGenerator({
       setTimeout(() => setGenerationProgress('Génération du design...'), 2000);
       setTimeout(() => setGenerationProgress('Application du style...'), 5000);
       setTimeout(() => setGenerationProgress('Finalisation...'), 8000);
-
-      console.log('Calling generate-overlay with provider:', provider);
 
       const { data, error: fnError } = await supabase.functions.invoke('generate-overlay', {
         body: {
@@ -175,11 +168,8 @@ export function AIFrameGenerator({
       });
 
       if (fnError) {
-        console.error('Function error:', fnError);
         throw fnError;
       }
-
-      console.log('Generation response:', data);
 
       if (data?.error) {
         // Handle rate limit and payment errors
