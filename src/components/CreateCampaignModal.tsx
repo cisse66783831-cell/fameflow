@@ -27,6 +27,7 @@ import { compressImage, needsCompression, formatFileSize } from '@/utils/imageCo
 import { DocumentFieldEditor } from './DocumentFieldEditor';
 import { DocumentTemplateSelector } from './DocumentTemplateSelector';
 import { PhotoZoneEditor } from './PhotoZoneEditor';
+import { useUserRoles } from '@/hooks/useUserRoles';
 import { AIFrameGenerator } from './AIFrameGenerator';
 import {
   Select,
@@ -114,6 +115,7 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const { uploadImage } = useStorage();
+  const { isSuperAdmin } = useUserRoles();
 
   // Debounced slug check
   useEffect(() => {
@@ -869,15 +871,17 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
                 {/* Photo Zone and AI options for photo type campaigns */}
                 {type === 'photo' && frameImage && (
                   <div className="space-y-3">
-                    {/* AI Frame Generator Button */}
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowAIGenerator(true)}
-                      className="w-full gap-2 border-primary/50 hover:border-primary hover:bg-primary/5"
-                    >
-                      <Sparkles className="w-4 h-4 text-primary" />
-                      Adapter avec l'IA
-                    </Button>
+                    {/* AI Frame Generator Button - Super Admin only */}
+                    {isSuperAdmin() && (
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowAIGenerator(true)}
+                        className="w-full gap-2 border-primary/50 hover:border-primary hover:bg-primary/5"
+                      >
+                        <Sparkles className="w-4 h-4 text-primary" />
+                        Adapter avec l'IA
+                      </Button>
+                    )}
 
                     {/* Photo Zone Editor Collapsible */}
                     <Collapsible open={showPhotoZoneEditor} onOpenChange={setShowPhotoZoneEditor}>
