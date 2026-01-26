@@ -28,6 +28,7 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
   const [selectedText, setSelectedText] = useState<string | null>(null);
   const [textDragStart, setTextDragStart] = useState({ x: 0, y: 0, elemX: 0, elemY: 0 });
   const [imageBlob, setImageBlob] = useState<Blob | null>(null);
+  const [userName, setUserName] = useState('');
 
   // Calculate canvas size based on document format (aperçu)
   const getCanvasSize = () => {
@@ -774,13 +775,29 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
           </Button>
         </div>
 
+        {/* User Name Input for Sharing */}
+        {campaign.type === 'photo' && (
+          <div className="pt-4 border-t border-border">
+            <label className="text-xs text-muted-foreground mb-2 block">Votre nom (pour le partage)</label>
+            <input
+              type="text"
+              value={userName}
+              onChange={(e) => setUserName(e.target.value)}
+              placeholder="Entrez votre nom"
+              className="w-full px-3 py-2 rounded-lg bg-background border border-input text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all mb-3"
+            />
+          </div>
+        )}
+
         {/* Social Share */}
-        <div className="pt-4 border-t border-border">
+        <div className={campaign.type !== 'photo' ? "pt-4 border-t border-border" : ""}>
           <SocialShare 
             imageBlob={imageBlob}
             title={campaign.title}
             hashtags={campaign.hashtags}
             shareUrl={getCampaignPublicUrl(campaign)}
+            campaignId={campaign.id}
+            creatorName={userName || 'Participant'}
           />
         </div>
 

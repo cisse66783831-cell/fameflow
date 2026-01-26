@@ -462,6 +462,54 @@ export type Database = {
           },
         ]
       }
+      shared_visuals: {
+        Row: {
+          campaign_id: string | null
+          created_at: string
+          creator_name: string
+          description: string | null
+          event_id: string | null
+          id: string
+          views: number | null
+          visual_url: string
+        }
+        Insert: {
+          campaign_id?: string | null
+          created_at?: string
+          creator_name: string
+          description?: string | null
+          event_id?: string | null
+          id?: string
+          views?: number | null
+          visual_url: string
+        }
+        Update: {
+          campaign_id?: string | null
+          created_at?: string
+          creator_name?: string
+          description?: string | null
+          event_id?: string | null
+          id?: string
+          views?: number | null
+          visual_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_visuals_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_visuals_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tickets: {
         Row: {
           created_at: string
