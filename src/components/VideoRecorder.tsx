@@ -663,9 +663,25 @@ export const VideoRecorder = ({
       video.playsInline = true;
       video.muted = true; // Mute the video element - we decode audio separately at full volume
       
+      // Wait for video metadata to be loaded
       await new Promise<void>((resolve, reject) => {
         video.onloadedmetadata = () => resolve();
         video.onerror = () => reject(new Error('Failed to load video'));
+      });
+      
+      // Store expected duration for validation
+      const expectedDuration = video.duration;
+      
+      // Wait for video to be ready to play (at least first frame available)
+      await new Promise<void>((resolve) => {
+        const checkReady = () => {
+          if (video.readyState >= 2) { // HAVE_CURRENT_DATA
+            resolve();
+          } else {
+            video.addEventListener('canplay', () => resolve(), { once: true });
+          }
+        };
+        checkReady();
       });
       
       // Detect if source video is portrait or landscape
@@ -701,8 +717,41 @@ export const VideoRecorder = ({
         });
       }
       
-      // Setup canvas stream for video
+      // Reset video to beginning before drawing first frame
+      video.currentTime = 0;
+      await new Promise<void>((resolve) => {
+        video.onseeked = () => resolve();
+      });
+      
+      // Draw first frame BEFORE starting the recorder
+      const videoAspect = video.videoWidth / video.videoHeight;
+      const canvasAspect = canvasWidth / canvasHeight;
+      
+      let drawWidth: number, drawHeight: number, offsetX: number, offsetY: number;
+      
+      if (videoAspect > canvasAspect) {
+        drawWidth = canvasWidth;
+        drawHeight = canvasWidth / videoAspect;
+        offsetX = 0;
+        offsetY = (canvasHeight - drawHeight) / 2;
+      } else {
+        drawHeight = canvasHeight;
+        drawWidth = canvasHeight * videoAspect;
+        offsetX = (canvasWidth - drawWidth) / 2;
+        offsetY = 0;
+      }
+      
+      // Clear canvas with black and draw first frame
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      ctx.drawImage(video, offsetX, offsetY, drawWidth, drawHeight);
+      if (filterImg) {
+        ctx.drawImage(filterImg, 0, 0, canvasWidth, canvasHeight);
+      }
+      
+      // Setup canvas stream for video - wait for stream to initialize
       const canvasStream = canvas.captureStream(30);
+      await new Promise(resolve => setTimeout(resolve, 50));
       
       // Extract audio at FULL VOLUME using decodeAudioData (independent of video element volume)
       try {
@@ -732,7 +781,7 @@ export const VideoRecorder = ({
           canvasStream.addTrack(track);
         });
         
-        // Audio will be started after video.play() to sync properly
+        // Audio will be started synchronized with video.play()
       } catch (audioError) {
         console.warn('Could not extract audio, continuing without:', audioError);
       }
@@ -765,15 +814,8 @@ export const VideoRecorder = ({
         };
       });
       
+      // Start recorder NOW (canvas already has first frame drawn)
       mediaRecorder.start(100);
-      
-      // Start video (muted, audio is from audioBufferSource)
-      await video.play();
-      
-      // Start audio NOW, synchronized with video
-      if (audioBufferSource) {
-        audioBufferSource.start(0);
-      }
       
       // Track export progress
       const progressInterval = setInterval(() => {
@@ -783,11 +825,17 @@ export const VideoRecorder = ({
         }
       }, 100);
       
+      // Start video playback from beginning
+      video.currentTime = 0;
+      await video.play();
+      
+      // Start audio EXACTLY at same time using AudioContext.currentTime for precise sync
+      if (audioBufferSource && audioContext) {
+        audioBufferSource.start(audioContext.currentTime);
+      }
+      
       const renderFrame = () => {
         if (video.ended || video.paused) {
-          clearInterval(progressInterval);
-          setExportProgress(100);
-          mediaRecorder.stop();
           return;
         }
         
@@ -829,6 +877,14 @@ export const VideoRecorder = ({
       await new Promise<void>((resolve) => {
         video.onended = () => {
           clearInterval(progressInterval);
+          setExportProgress(100);
+          
+          // Validate duration
+          const actualDuration = video.currentTime;
+          if (actualDuration < expectedDuration * 0.95) {
+            console.warn(`Video ended early: ${actualDuration.toFixed(2)}s vs expected ${expectedDuration.toFixed(2)}s`);
+          }
+          
           // Stop audio when video ends
           if (audioBufferSource) {
             try {
@@ -837,6 +893,12 @@ export const VideoRecorder = ({
               // Ignore if already stopped
             }
           }
+          
+          // Stop recorder
+          if (mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+          }
+          
           resolve();
         };
       });
@@ -957,6 +1019,7 @@ export const VideoRecorder = ({
     if (!uploadedVideo) return;
     
     setIsProcessing(true);
+    setIsSharing(true);
     setExportProgress(0);
     toast.info('Préparation de la vidéo pour le partage...');
     
@@ -972,9 +1035,22 @@ export const VideoRecorder = ({
       video.playsInline = true;
       video.muted = true;
       
+      // Wait for metadata
       await new Promise<void>((resolve, reject) => {
         video.onloadedmetadata = () => resolve();
         video.onerror = () => reject(new Error('Failed to load video'));
+      });
+      
+      // Store expected duration
+      const expectedDuration = video.duration;
+      
+      // Wait for video to be ready (first frame available)
+      await new Promise<void>((resolve) => {
+        if (video.readyState >= 2) {
+          resolve();
+        } else {
+          video.addEventListener('canplay', () => resolve(), { once: true });
+        }
       });
       
       const isVideoPortrait = video.videoHeight > video.videoWidth;
@@ -1002,8 +1078,42 @@ export const VideoRecorder = ({
         });
       }
       
-      const canvasStream = canvas.captureStream(30);
+      // Reset video to beginning
+      video.currentTime = 0;
+      await new Promise<void>((resolve) => {
+        video.onseeked = () => resolve();
+      });
       
+      // Draw first frame BEFORE starting recorder
+      const videoAspect = video.videoWidth / video.videoHeight;
+      const canvasAspect = canvasWidth / canvasHeight;
+      
+      let drawWidth: number, drawHeight: number, offsetX: number, offsetY: number;
+      
+      if (videoAspect > canvasAspect) {
+        drawWidth = canvasWidth;
+        drawHeight = canvasWidth / videoAspect;
+        offsetX = 0;
+        offsetY = (canvasHeight - drawHeight) / 2;
+      } else {
+        drawHeight = canvasHeight;
+        drawWidth = canvasHeight * videoAspect;
+        offsetX = (canvasWidth - drawWidth) / 2;
+        offsetY = 0;
+      }
+      
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      ctx.drawImage(video, offsetX, offsetY, drawWidth, drawHeight);
+      if (filterImg) {
+        ctx.drawImage(filterImg, 0, 0, canvasWidth, canvasHeight);
+      }
+      
+      // Setup canvas stream - wait for initialization
+      const canvasStream = canvas.captureStream(30);
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      // Extract audio
       try {
         audioContext = new AudioContext();
         const arrayBuffer = await uploadedVideo.arrayBuffer();
@@ -1022,8 +1132,6 @@ export const VideoRecorder = ({
         audioDestination.stream.getAudioTracks().forEach(track => {
           canvasStream.addTrack(track);
         });
-        
-        // Ne pas démarrer l'audio ici - sera synchronisé avec video.play()
       } catch (audioError) {
         console.warn('Could not extract audio:', audioError);
       }
@@ -1047,13 +1155,8 @@ export const VideoRecorder = ({
         };
       });
       
+      // Start recorder (canvas already has first frame)
       mediaRecorder.start(100);
-      
-      // Start video and audio simultaneously for perfect sync
-      await video.play();
-      if (audioBufferSource) {
-        audioBufferSource.start(0);
-      }
       
       const progressInterval = setInterval(() => {
         if (video.duration > 0) {
@@ -1062,11 +1165,17 @@ export const VideoRecorder = ({
         }
       }, 100);
       
+      // Start video from beginning
+      video.currentTime = 0;
+      await video.play();
+      
+      // Start audio synchronized with AudioContext.currentTime
+      if (audioBufferSource && audioContext) {
+        audioBufferSource.start(audioContext.currentTime);
+      }
+      
       const renderFrame = () => {
         if (video.ended || video.paused) {
-          clearInterval(progressInterval);
-          setExportProgress(100);
-          mediaRecorder.stop();
           return;
         }
         
@@ -1103,6 +1212,28 @@ export const VideoRecorder = ({
       await new Promise<void>((resolve) => {
         video.onended = () => {
           clearInterval(progressInterval);
+          setExportProgress(100);
+          
+          // Validate duration
+          const actualDuration = video.currentTime;
+          if (actualDuration < expectedDuration * 0.95) {
+            console.warn(`Video ended early: ${actualDuration.toFixed(2)}s vs expected ${expectedDuration.toFixed(2)}s`);
+          }
+          
+          // Stop audio
+          if (audioBufferSource) {
+            try {
+              audioBufferSource.stop();
+            } catch (e) {
+              // Ignore
+            }
+          }
+          
+          // Stop recorder
+          if (mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+          }
+          
           resolve();
         };
       });
@@ -1124,6 +1255,7 @@ export const VideoRecorder = ({
         URL.revokeObjectURL(videoSrcUrl);
       }
       setIsProcessing(false);
+      setIsSharing(false);
       setExportProgress(0);
     }
   };
