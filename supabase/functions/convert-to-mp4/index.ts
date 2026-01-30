@@ -37,9 +37,11 @@ serve(async (req) => {
     );
     const dataUri = `data:${videoFile.type};base64,${base64Video}`;
 
-    // Generate signature for authenticated upload
+    // Generate signature for authenticated upload with eager transformation
+    // Parameters MUST be in alphabetical order for signature generation
     const timestamp = Math.floor(Date.now() / 1000);
-    const paramsToSign = `format=mp4&resource_type=video&timestamp=${timestamp}`;
+    const eagerTransform = 'vc_auto,fps_30,ac_aac';
+    const paramsToSign = `eager=${eagerTransform}&format=mp4&resource_type=video&timestamp=${timestamp}`;
     
     // Create signature using HMAC-SHA1
     const encoder = new TextEncoder();
@@ -59,7 +61,7 @@ serve(async (req) => {
       .map(b => b.toString(16).padStart(2, '0'))
       .join('');
 
-    // Upload to Cloudinary with MP4 conversion
+    // Upload to Cloudinary with MP4 conversion and eager transformation for A/V sync
     const cloudinaryForm = new FormData();
     cloudinaryForm.append('file', dataUri);
     cloudinaryForm.append('api_key', apiKey);
@@ -67,8 +69,9 @@ serve(async (req) => {
     cloudinaryForm.append('signature', signature);
     cloudinaryForm.append('resource_type', 'video');
     cloudinaryForm.append('format', 'mp4');
+    cloudinaryForm.append('eager', eagerTransform);
 
-    console.log('Uploading to Cloudinary...');
+    console.log('Uploading to Cloudinary with eager transformation (fps_30 for A/V sync)...');
     
     const uploadResponse = await fetch(
       `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`,
@@ -87,10 +90,15 @@ serve(async (req) => {
     const uploadResult = await uploadResponse.json();
     console.log('Upload successful, public_id:', uploadResult.public_id);
 
-    // Get the MP4 URL directly from secure_url (already in MP4 format)
-    const mp4Url = uploadResult.secure_url;
-    
-    console.log('MP4 URL:', mp4Url);
+    // Prefer eager transformation URL (fps_30 fixed) if available, otherwise use secure_url
+    let mp4Url: string;
+    if (uploadResult.eager && uploadResult.eager.length > 0 && uploadResult.eager[0].secure_url) {
+      mp4Url = uploadResult.eager[0].secure_url;
+      console.log('Using eager transformed URL (fps_30 synced):', mp4Url);
+    } else {
+      mp4Url = uploadResult.secure_url;
+      console.log('Eager not available, using default MP4 URL:', mp4Url);
+    }
 
     // Download the converted MP4
     const mp4Response = await fetch(mp4Url);
