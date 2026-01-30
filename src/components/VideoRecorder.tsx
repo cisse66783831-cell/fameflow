@@ -7,6 +7,7 @@ import { Slider } from '@/components/ui/slider';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import fixWebmDuration from 'fix-webm-duration';
 
 // Get the best supported MIME type for recording (prioritize MP4 for WhatsApp compatibility)
 const getPreferredMimeType = (): { mimeType: string; extension: string; isWhatsAppCompatible: boolean } => {
@@ -94,6 +95,7 @@ export const VideoRecorder = ({
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const audioAnimationRef = useRef<number | null>(null);
+  const recordingStartTimeRef = useRef<number>(0);
   const [isConverting, setIsConverting] = useState(false);
 
   // Convert WebM to MP4 using Cloudinary edge function
@@ -549,16 +551,33 @@ export const VideoRecorder = ({
       };
       
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: mimeInfo.mimeType.split(';')[0] });
-        setRecordedBlob(blob);
-        setIsRecording(false);
-        setRecordingTime(0);
-        if (timerRef.current) {
-          clearInterval(timerRef.current);
-          timerRef.current = null;
+        const rawBlob = new Blob(chunksRef.current, { type: mimeInfo.mimeType.split(';')[0] });
+        const duration = Date.now() - recordingStartTimeRef.current;
+        
+        // Fix WebM duration metadata for Cloudinary compatibility
+        if (rawBlob.type.includes('webm')) {
+          fixWebmDuration(rawBlob, duration, (fixedBlob) => {
+            setRecordedBlob(fixedBlob);
+            setIsRecording(false);
+            setRecordingTime(0);
+            if (timerRef.current) {
+              clearInterval(timerRef.current);
+              timerRef.current = null;
+            }
+          });
+        } else {
+          setRecordedBlob(rawBlob);
+          setIsRecording(false);
+          setRecordingTime(0);
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
         }
       };
       
+      // Store precise start time for duration calculation
+      recordingStartTimeRef.current = Date.now();
       mediaRecorder.start(100); // Collect data every 100ms
       mediaRecorderRef.current = mediaRecorder;
       setIsRecording(true);
@@ -808,13 +827,27 @@ export const VideoRecorder = ({
         if (e.data.size > 0) chunks.push(e.data);
       };
       
+      // Store start time for WebM duration fix
+      let recordStartTime = 0;
+      
       const exportPromise = new Promise<Blob>((resolve) => {
         mediaRecorder.onstop = () => {
-          resolve(new Blob(chunks, { type: mimeInfo.mimeType.split(';')[0] }));
+          const rawBlob = new Blob(chunks, { type: mimeInfo.mimeType.split(';')[0] });
+          const duration = Date.now() - recordStartTime;
+          
+          // Fix WebM duration metadata for Cloudinary compatibility
+          if (rawBlob.type.includes('webm')) {
+            fixWebmDuration(rawBlob, duration, (fixedBlob) => {
+              resolve(fixedBlob);
+            });
+          } else {
+            resolve(rawBlob);
+          }
         };
       });
       
-      // Start recorder NOW (canvas already has first frame drawn)
+      // Store precise start time and start recorder (canvas already has first frame drawn)
+      recordStartTime = Date.now();
       mediaRecorder.start(100);
       
       // Track export progress
@@ -1149,13 +1182,27 @@ export const VideoRecorder = ({
         if (e.data.size > 0) chunks.push(e.data);
       };
       
+      // Store start time for WebM duration fix
+      let recordStartTime = 0;
+      
       const exportPromise = new Promise<Blob>((resolve) => {
         mediaRecorder.onstop = () => {
-          resolve(new Blob(chunks, { type: mimeInfo.mimeType.split(';')[0] }));
+          const rawBlob = new Blob(chunks, { type: mimeInfo.mimeType.split(';')[0] });
+          const duration = Date.now() - recordStartTime;
+          
+          // Fix WebM duration metadata for Cloudinary compatibility
+          if (rawBlob.type.includes('webm')) {
+            fixWebmDuration(rawBlob, duration, (fixedBlob) => {
+              resolve(fixedBlob);
+            });
+          } else {
+            resolve(rawBlob);
+          }
         };
       });
       
-      // Start recorder (canvas already has first frame)
+      // Store precise start time and start recorder (canvas already has first frame)
+      recordStartTime = Date.now();
       mediaRecorder.start(100);
       
       const progressInterval = setInterval(() => {
