@@ -30,6 +30,9 @@ export type Database = {
           is_featured: boolean | null
           name_zone_enabled: boolean | null
           name_zone_y: number | null
+          payment_amount: number | null
+          payment_country: string | null
+          payment_status: string | null
           photo_zone_height: number | null
           photo_zone_shape: string | null
           photo_zone_width: number | null
@@ -38,6 +41,7 @@ export type Database = {
           slug: string | null
           text_elements: Json
           title: string
+          transaction_code: string | null
           type: string
           updated_at: string
           user_id: string
@@ -58,6 +62,9 @@ export type Database = {
           is_featured?: boolean | null
           name_zone_enabled?: boolean | null
           name_zone_y?: number | null
+          payment_amount?: number | null
+          payment_country?: string | null
+          payment_status?: string | null
           photo_zone_height?: number | null
           photo_zone_shape?: string | null
           photo_zone_width?: number | null
@@ -66,6 +73,7 @@ export type Database = {
           slug?: string | null
           text_elements?: Json
           title: string
+          transaction_code?: string | null
           type: string
           updated_at?: string
           user_id: string
@@ -86,6 +94,9 @@ export type Database = {
           is_featured?: boolean | null
           name_zone_enabled?: boolean | null
           name_zone_y?: number | null
+          payment_amount?: number | null
+          payment_country?: string | null
+          payment_status?: string | null
           photo_zone_height?: number | null
           photo_zone_shape?: string | null
           photo_zone_width?: number | null
@@ -94,6 +105,7 @@ export type Database = {
           slug?: string | null
           text_elements?: Json
           title?: string
+          transaction_code?: string | null
           type?: string
           updated_at?: string
           user_id?: string

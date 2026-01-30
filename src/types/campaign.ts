@@ -18,6 +18,8 @@ export interface TextElement {
 export type DocumentFormat = 'a4-landscape' | 'a4-portrait' | 'square' | 'badge';
 export type DocumentCategory = 'certificate' | 'attestation' | 'diploma' | 'badge' | 'invitation';
 
+export type PaymentStatus = 'free' | 'pending' | 'approved' | 'rejected';
+
 export interface Campaign {
   id: string;
   title: string;
@@ -45,6 +47,11 @@ export interface Campaign {
   photoZoneShape?: 'rect' | 'circle' | null;
   nameZoneEnabled?: boolean | null;
   nameZoneY?: number | null;
+  // Payment tracking for video campaigns
+  paymentStatus?: PaymentStatus;
+  transactionCode?: string | null;
+  paymentCountry?: string | null;
+  paymentAmount?: number | null;
 }
 
 export interface ParticipantData {

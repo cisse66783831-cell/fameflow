@@ -14,7 +14,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Image, Search, Trash2, RefreshCw, Loader2, Eye, Download, ExternalLink, User, TrendingUp, Star, StarOff } from 'lucide-react';
+import { Image, Search, Trash2, RefreshCw, Loader2, Eye, Download, ExternalLink, User, TrendingUp, Star, StarOff, Video, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
@@ -29,6 +29,11 @@ interface Campaign {
   created_at: string;
   user_id: string;
   owner_name?: string;
+  type?: string;
+  payment_status?: string;
+  transaction_code?: string | null;
+  payment_country?: string | null;
+  payment_amount?: number | null;
 }
 
 interface AdminCampaignListProps {
@@ -91,10 +96,49 @@ export function AdminCampaignList({ campaigns, onRefresh, isLoading }: AdminCamp
 
   const totalViews = campaigns.reduce((acc, c) => acc + (c.views || 0), 0);
   const totalDownloads = campaigns.reduce((acc, c) => acc + (c.downloads || 0), 0);
+  const pendingCount = campaigns.filter(c => c.payment_status === 'pending').length;
 
   const getConversionRate = (views: number, downloads: number) => {
     if (views === 0) return 0;
     return ((downloads / views) * 100).toFixed(1);
+  };
+
+  const getPaymentStatusBadge = (status: string | undefined, type: string | undefined) => {
+    if (type === 'video_filter') {
+      switch (status) {
+        case 'approved':
+          return (
+            <Badge variant="secondary" className="text-xs bg-green-100 text-green-700 border-green-200">
+              <CheckCircle2 className="w-3 h-3 mr-1" />
+              Approuvé
+            </Badge>
+          );
+        case 'pending':
+          return (
+            <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-700 border-orange-200">
+              <Clock className="w-3 h-3 mr-1" />
+              En attente
+            </Badge>
+          );
+        case 'rejected':
+          return (
+            <Badge variant="secondary" className="text-xs bg-red-100 text-red-700 border-red-200">
+              <XCircle className="w-3 h-3 mr-1" />
+              Rejeté
+            </Badge>
+          );
+        default:
+          return null;
+      }
+    }
+    return null;
+  };
+
+  const getCampaignTypeIcon = (type: string | undefined) => {
+    if (type === 'video_filter') {
+      return <Video className="w-4 h-4 text-orange-500" />;
+    }
+    return <Image className="w-4 h-4 text-primary" />;
   };
 
   return (
@@ -143,46 +187,57 @@ export function AdminCampaignList({ campaigns, onRefresh, isLoading }: AdminCamp
             ) : (
               filteredCampaigns.map((campaign) => {
                 const convRate = getConversionRate(campaign.views || 0, campaign.downloads || 0);
+                const isVideoType = campaign.type === 'video_filter';
                 return (
                   <div
-                  key={campaign.id} 
-                  className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 rounded-lg bg-background/50 border border-border/30 hover:border-primary/30 transition-colors"
-                >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="w-12 h-12 rounded-lg overflow-hidden bg-secondary shrink-0">
-                      {campaign.frame_image ? (
-                        <img 
-                          src={campaign.frame_image} 
-                          alt={campaign.title}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-primary/10">
-                          <Image className="w-5 h-5 text-primary" />
+                    key={campaign.id} 
+                    className={`flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 rounded-lg bg-background/50 border transition-colors ${
+                      campaign.payment_status === 'pending' 
+                        ? 'border-orange-500/30 bg-orange-500/5' 
+                        : 'border-border/30 hover:border-primary/30'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="w-12 h-12 rounded-lg overflow-hidden bg-secondary shrink-0 relative">
+                        {campaign.frame_image ? (
+                          <img 
+                            src={campaign.frame_image} 
+                            alt={campaign.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-primary/10">
+                            {getCampaignTypeIcon(campaign.type)}
+                          </div>
+                        )}
+                        {isVideoType && (
+                          <div className="absolute bottom-0 right-0 bg-orange-500 p-0.5 rounded-tl">
+                            <Video className="w-2.5 h-2.5 text-white" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-medium truncate">{campaign.title}</p>
+                          {campaign.is_featured && (
+                            <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 border-amber-200">
+                              <Star className="w-3 h-3 mr-1 fill-amber-500" />
+                              En avant
+                            </Badge>
+                          )}
+                          {getPaymentStatusBadge(campaign.payment_status, campaign.type)}
                         </div>
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium truncate">{campaign.title}</p>
-                        {campaign.is_featured && (
-                          <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 border-amber-200">
-                            <Star className="w-3 h-3 mr-1 fill-amber-500" />
-                            En avant
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <span className="truncate">/{campaign.slug}</span>
-                        {campaign.owner_name && (
-                          <span className="flex items-center gap-1 text-xs">
-                            <User className="w-3 h-3" />
-                            {campaign.owner_name}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <span className="truncate">/{campaign.slug}</span>
+                          {campaign.owner_name && (
+                            <span className="flex items-center gap-1 text-xs">
+                              <User className="w-3 h-3" />
+                              {campaign.owner_name}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
                   <div className="flex items-center gap-4 flex-wrap">
                     <div className="flex items-center gap-2 text-sm">
