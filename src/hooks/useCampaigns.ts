@@ -30,6 +30,10 @@ const mapDbToCampaign = (db: {
   photo_zone_shape: string | null;
   name_zone_enabled: boolean | null;
   name_zone_y: number | null;
+  payment_status?: string | null;
+  transaction_code?: string | null;
+  payment_country?: string | null;
+  payment_amount?: number | null;
 }): Campaign => ({
   id: db.id,
   title: db.title,
@@ -53,6 +57,10 @@ const mapDbToCampaign = (db: {
   photoZoneShape: db.photo_zone_shape as 'rect' | 'circle' | null,
   nameZoneEnabled: db.name_zone_enabled,
   nameZoneY: db.name_zone_y,
+  paymentStatus: (db.payment_status as Campaign['paymentStatus']) || 'free',
+  transactionCode: db.transaction_code,
+  paymentCountry: db.payment_country,
+  paymentAmount: db.payment_amount,
 });
 
 export const useCampaigns = () => {
@@ -113,6 +121,10 @@ export const useCampaigns = () => {
         photo_zone_shape: campaign.photoZoneShape ?? null,
         name_zone_enabled: campaign.nameZoneEnabled ?? null,
         name_zone_y: campaign.nameZoneY ?? null,
+        payment_status: campaign.paymentStatus || 'free',
+        transaction_code: campaign.transactionCode || null,
+        payment_country: campaign.paymentCountry || null,
+        payment_amount: campaign.paymentAmount || 0,
       })
       .select()
       .single();
@@ -146,6 +158,10 @@ export const useCampaigns = () => {
     if (updates.photoZoneShape !== undefined) dbUpdates.photo_zone_shape = updates.photoZoneShape;
     if (updates.nameZoneEnabled !== undefined) dbUpdates.name_zone_enabled = updates.nameZoneEnabled;
     if (updates.nameZoneY !== undefined) dbUpdates.name_zone_y = updates.nameZoneY;
+    if (updates.paymentStatus !== undefined) dbUpdates.payment_status = updates.paymentStatus;
+    if (updates.transactionCode !== undefined) dbUpdates.transaction_code = updates.transactionCode;
+    if (updates.paymentCountry !== undefined) dbUpdates.payment_country = updates.paymentCountry;
+    if (updates.paymentAmount !== undefined) dbUpdates.payment_amount = updates.paymentAmount;
 
     const { error } = await supabase
       .from('campaigns')

@@ -20,7 +20,9 @@ import { AdminCampaignList } from '@/components/admin/AdminCampaignList';
 import { AdminTransactionList } from '@/components/admin/AdminTransactionList';
 import { AdminModerationPanel } from '@/components/admin/AdminModerationPanel';
 import { AdminLandingPagePanel } from '@/components/admin/AdminLandingPagePanel';
+import { AdminVideoCampaignValidation } from '@/components/admin/AdminVideoCampaignValidation';
 import { AppRole } from '@/types/ticket';
+import { Badge } from '@/components/ui/badge';
 
 interface PlatformStats {
   totalUsers: number;
@@ -213,10 +215,10 @@ export default function SuperAdminPage() {
   };
 
   const fetchCampaigns = async () => {
-    // Fetch campaigns with profile info
+    // Fetch campaigns with profile info including payment fields
     const { data: campaignsData } = await supabase
       .from('campaigns')
-      .select('id, title, slug, views, created_at, user_id, frame_image, is_featured, display_order')
+      .select('id, title, slug, views, created_at, user_id, frame_image, is_featured, display_order, type, payment_status, transaction_code, payment_country, payment_amount')
       .order('created_at', { ascending: false });
 
     // Fetch real download counts from download_stats (source of truth)
@@ -246,7 +248,8 @@ export default function SuperAdminPage() {
       ...c,
       // Use real download count from download_stats
       downloads: downloadsByCampaign[c.id] || 0,
-      owner_name: profilesMap[c.user_id]?.full_name || profilesMap[c.user_id]?.email || 'Inconnu'
+      owner_name: profilesMap[c.user_id]?.full_name || profilesMap[c.user_id]?.email || 'Inconnu',
+      owner_email: profilesMap[c.user_id]?.email || null,
     }));
 
     setCampaigns(enrichedCampaigns);
@@ -425,6 +428,14 @@ export default function SuperAdminPage() {
             <TabsList className="flex-wrap">
               <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
               <TabsTrigger value="landing">Landing Page</TabsTrigger>
+              <TabsTrigger value="video-validation" className="gap-2">
+                Validations Vidéo
+                {campaigns.filter(c => c.payment_status === 'pending').length > 0 && (
+                  <Badge variant="destructive" className="ml-1 h-5 px-1.5">
+                    {campaigns.filter(c => c.payment_status === 'pending').length}
+                  </Badge>
+                )}
+              </TabsTrigger>
               <TabsTrigger value="users">Utilisateurs</TabsTrigger>
               <TabsTrigger value="events">Événements</TabsTrigger>
               <TabsTrigger value="campaigns">Campagnes</TabsTrigger>
@@ -535,6 +546,14 @@ export default function SuperAdminPage() {
 
             <TabsContent value="landing">
               <AdminLandingPagePanel onRefresh={fetchVisuals} />
+            </TabsContent>
+
+            <TabsContent value="video-validation">
+              <AdminVideoCampaignValidation 
+                campaigns={campaigns} 
+                onRefresh={fetchCampaigns} 
+                isLoading={isLoadingData} 
+              />
             </TabsContent>
 
             <TabsContent value="users">
