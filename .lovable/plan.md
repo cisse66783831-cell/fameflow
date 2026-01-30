@@ -1,146 +1,145 @@
 
-# Plan de correction : Synchronisation vidéo/audio et durée correcte
+# Plan de restauration : Upload et Validation des campagnes vidéo
 
-## Problèmes identifiés
+## Diagnostic des problèmes
 
-| Problème | Cause | Impact |
-|----------|-------|--------|
-| Vidéo de 3 secondes | MediaRecorder démarre avant que la vidéo soit prête à jouer | Perte de contenu |
-| Décalage audio/vidéo | Audio et vidéo démarrent de manière asynchrone | Désynchronisation perceptible |
-| Frames manquantes | Premier rendu canvas arrive après le démarrage du recorder | Début de vidéo noir/corrompu |
+| Probleme | Actuel | Attendu |
+|----------|--------|---------|
+| Structure upload | Modal simplifie sans zones photo/IA | Modal detaille comme CreateEventModal avec onglets |
+| Validation video admin | Inexistante (infos dans description) | Panneau dedie avec statuts et actions |
+| Base de donnees | Pas de colonnes payment | Colonnes dediees pour tracking |
 
-## Solution technique
-
-### Architecture de synchronisation
+## Architecture de la solution
 
 ```text
-AVANT (problématique):
-┌─────────────────────────────────────────────────────────────────┐
-│ T=0ms          T=50ms         T=100ms        T=150ms           │
-│ ────────────────────────────────────────────────────────────── │
-│ MediaRecorder  video.play()   audio.start()  1er frame canvas  │
-│ start          (async)        (0)            (dessin)          │
-│                                                                 │
-│ Problème: Recorder capture avant que le contenu soit prêt     │
-└─────────────────────────────────────────────────────────────────┘
+FLUX CREATION CAMPAGNE VIDEO:
 
-APRÈS (corrigé):
-┌─────────────────────────────────────────────────────────────────┐
-│ T=0ms                T=Xms                                      │
-│ ────────────────────────────────────────────────────────────── │
-│ 1. video.play()      2. waitForFirstFrame                      │
-│                      3. drawFirstFrame sur canvas               │
-│                      4. MediaRecorder.start()                   │
-│                      5. audioBufferSource.start(0)              │
-│                      6. renderLoop démarre                      │
-│                                                                 │
-│ Solution: Tout démarre après que la vidéo ait sa première frame│
-└─────────────────────────────────────────────────────────────────┘
+Utilisateur                   Base de donnees                    Admin
+    |                              |                              |
+    |--[1. Configure cadre]------->|                              |
+    |--[2. Paye + entre code]----->|                              |
+    |                              |--[Statut: PENDING]---------->|
+    |                              |                              |
+    |                              |<--[3. Valide paiement]-------|
+    |<--[4. Email notification]----|                              |
+    |                              |--[Statut: APPROVED]          |
+    |--[5. Campagne active]------->|                              |
 ```
 
-## Modifications dans `src/components/VideoRecorder.tsx`
+## Modifications a effectuer
 
-### 1. Attendre que la vidéo soit prête avant de démarrer l'enregistrement
+### 1. Migration SQL - Nouvelles colonnes
 
-Remplacer la logique actuelle (lignes ~768-827) par :
+Ajouter des colonnes dediees a la table `campaigns` :
+
+```sql
+ALTER TABLE public.campaigns
+ADD COLUMN payment_status TEXT DEFAULT 'free' CHECK (payment_status IN ('free', 'pending', 'approved', 'rejected')),
+ADD COLUMN transaction_code TEXT,
+ADD COLUMN payment_country TEXT,
+ADD COLUMN payment_amount INTEGER DEFAULT 0;
+```
+
+- `payment_status`: 'free' pour Photo, 'pending'/'approved'/'rejected' pour Video
+- `transaction_code`: Code de transaction Mobile Money
+- `payment_country`: Code pays (BF, CI, ML, OTHER)
+- `payment_amount`: Montant paye en FCFA
+
+### 2. Refonte de CreateCampaignModal.tsx
+
+Restaurer la structure complete avec onglets :
+
+**Onglet 1 - Details :**
+- Type (Photo gratuit / Video payant)
+- Titre et description
+- Upload image du cadre via ImageUploader existant
+
+**Onglet 2 - Zone Photo (optionnel) :**
+- Integration de PhotoZoneEditor comme dans CreateEventModal
+- Permet de definir ou placer la photo du participant
+
+**Onglet 3 - Paiement (Video seulement) :**
+- Selecteur de pays
+- Instructions de paiement dynamiques (numero + USSD pour BF)
+- Champ code de transaction
+- Message explicatif sur la validation
+
+**Logique de soumission :**
+- Si Photo : `payment_status = 'free'`, creation immediate
+- Si Video : `payment_status = 'pending'`, creation en attente
+
+### 3. Nouveau composant AdminVideoCampaignValidation.tsx
+
+Panneau dedie dans SuperAdmin pour gerer les campagnes video en attente :
 
 ```typescript
-// Attendre que la vidéo ait sa première frame prête
-await new Promise<void>((resolve) => {
-  const checkReady = () => {
-    // readyState >= 2 = HAVE_CURRENT_DATA (au moins une frame disponible)
-    if (video.readyState >= 2) {
-      resolve();
-    } else {
-      video.addEventListener('canplay', () => resolve(), { once: true });
-    }
-  };
-  checkReady();
-});
-
-// Dessiner la première frame AVANT de démarrer le recorder
-const videoAspect = video.videoWidth / video.videoHeight;
-const canvasAspect = canvasWidth / canvasHeight;
-// ... calculs drawWidth, drawHeight, offsetX, offsetY ...
-ctx.fillStyle = '#000';
-ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-ctx.drawImage(video, offsetX, offsetY, drawWidth, drawHeight);
-if (filterImg) {
-  ctx.drawImage(filterImg, 0, 0, canvasWidth, canvasHeight);
+interface PendingCampaign {
+  id: string;
+  title: string;
+  frame_image: string;
+  transaction_code: string;
+  payment_country: string;
+  payment_amount: number;
+  owner_name: string;
+  created_at: string;
 }
-
-// MAINTENANT démarrer le recorder (canvas a déjà du contenu)
-mediaRecorder.start(100);
-
-// Démarrer l'audio EXACTEMENT en même temps que la vidéo reprend
-video.currentTime = 0;
-await video.play();
-
-if (audioBufferSource) {
-  // Démarrer l'audio au même moment que la vidéo
-  audioBufferSource.start(audioContext.currentTime);
-}
 ```
 
-### 2. Capturer la durée totale de la vidéo source
+**Fonctionnalites :**
+- Liste des campagnes avec `payment_status = 'pending'`
+- Affichage du code transaction et pays
+- Boutons Valider / Rejeter
+- Envoi email automatique apres validation (via Edge Function)
 
-Ajouter une vérification que la vidéo source est bien lue jusqu'à la fin :
+### 4. Mise a jour de AdminCampaignList.tsx
+
+Ajouter des badges visuels pour le statut de paiement :
+- Badge vert "Actif" pour `approved` ou `free`
+- Badge orange "En attente" pour `pending`
+- Badge rouge "Rejete" pour `rejected`
+
+Filtrer pour afficher uniquement les campagnes actives par defaut.
+
+### 5. Mise a jour de SuperAdmin.tsx
+
+Ajouter un nouvel onglet "Validations Video" :
 
 ```typescript
-// Stocker la durée attendue
-const expectedDuration = video.duration;
+<TabsTrigger value="video-validation">
+  Validations Video
+  {pendingCount > 0 && <Badge>{pendingCount}</Badge>}
+</TabsTrigger>
 
-// Vérifier à la fin que toute la vidéo a été capturée
-video.onended = () => {
-  const actualDuration = video.currentTime;
-  if (actualDuration < expectedDuration * 0.95) {
-    console.warn(`Video ended early: ${actualDuration}s vs expected ${expectedDuration}s`);
-  }
-  // ... reste du code
-};
+<TabsContent value="video-validation">
+  <AdminVideoCampaignValidation
+    campaigns={pendingVideoCampaigns}
+    onRefresh={fetchCampaigns}
+    isLoading={isLoadingData}
+  />
+</TabsContent>
 ```
 
-### 3. Améliorer la synchronisation avec AudioContext.currentTime
+### 6. Edge Function pour email de notification (optionnel)
 
-Utiliser le temps de l'AudioContext pour une synchronisation précise :
+Creer `supabase/functions/notify-campaign-approval/index.ts` :
+- Declenche apres validation par l'admin
+- Envoie email a l'utilisateur avec lien vers sa campagne
 
-```typescript
-// Au lieu de audioBufferSource.start(0)
-const audioStartTime = audioContext.currentTime;
-audioBufferSource.start(audioStartTime);
+## Fichiers a modifier/creer
 
-// Le "when" parameter de start() utilise le temps précis de l'AudioContext
-// Cela garantit que l'audio démarre exactement quand prévu
-```
+| Fichier | Action |
+|---------|--------|
+| Migration SQL | Creer - nouvelles colonnes payment |
+| src/components/CreateCampaignModal.tsx | Modifier - structure avec onglets + PhotoZoneEditor |
+| src/components/admin/AdminVideoCampaignValidation.tsx | Creer - nouveau panneau validation |
+| src/components/admin/AdminCampaignList.tsx | Modifier - badges statut + filtres |
+| src/pages/SuperAdmin.tsx | Modifier - ajouter onglet validation |
+| src/types/campaign.ts | Modifier - ajouter types payment |
+| src/hooks/useCampaigns.ts | Modifier - mapper nouvelles colonnes |
 
-### 4. Ajouter un délai de préchauffage du canvas stream
+## Resultat attendu
 
-Le `captureStream()` peut avoir besoin d'un petit délai pour s'initialiser :
-
-```typescript
-const canvasStream = canvas.captureStream(30);
-
-// Attendre que le stream soit actif
-await new Promise(resolve => setTimeout(resolve, 50));
-```
-
-## Fichier à modifier
-
-| Fichier | Modifications |
-|---------|---------------|
-| `src/components/VideoRecorder.tsx` | Réordonner la séquence de démarrage pour synchroniser video/audio/recorder |
-
-## Changements clés
-
-1. **Attendre `canplay`** avant de démarrer quoi que ce soit
-2. **Dessiner une frame** sur le canvas avant de démarrer le MediaRecorder
-3. **Démarrer le MediaRecorder** une fois le canvas initialisé
-4. **Synchroniser audio et vidéo** en utilisant `audioContext.currentTime`
-5. **Remettre `video.currentTime = 0`** avant de jouer pour garantir que tout part du début
-
-## Résultat attendu
-
-- Vidéo exportée avec la durée complète (pas seulement 3 secondes)
-- Audio parfaitement synchronisé avec la vidéo
-- Pas de frames noires au début
-- Export fiable sur tous les navigateurs
+1. **Createur** : Interface claire avec onglets (Details > Zone Photo > Paiement)
+2. **Admin** : Panneau dedie pour valider les paiements video avec toutes les infos
+3. **Tracking** : Colonnes dediees au lieu d'injecter dans la description
+4. **Visibilite** : Campagnes video "pending" non visibles publiquement jusqu'a validation
