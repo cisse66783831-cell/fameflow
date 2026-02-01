@@ -294,13 +294,9 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
     }
 
     // Validation paiement vidéo
-    let finalDescription = description.trim();
-    if (type === "video_filter") {
-      if (!transactionCode) {
-        toast.error("Veuillez entrer le code de transaction");
-        return;
-      }
-      finalDescription = `[PAYS: ${country} - PAIEMENT: ${transactionCode} - STATUS: EN_ATTENTE]\n\n${description}`;
+    if (type === "video_filter" && !transactionCode) {
+      toast.error("Veuillez entrer le code de transaction");
+      return;
     }
 
     setIsUploading(true);
@@ -322,10 +318,14 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
         throw new Error("Échec upload");
       }
 
+      // Déterminer le statut de paiement
+      const isVideoFilter = type === "video_filter";
+      const paymentStatus = isVideoFilter ? "pending" : "free";
+
       const campaign: Campaign = {
         id: `campaign-${Date.now()}`,
         title: title.trim(),
-        description: finalDescription, // Description avec métadonnées de paiement
+        description: description.trim(), // Description propre, sans métadonnées
         type,
         frameImage: uploadedUrl,
         frameImagePortrait: uploadedPortraitUrl || undefined,
@@ -346,6 +346,11 @@ export const CreateCampaignModal = ({ open, onClose, onCreate }: CreateCampaignM
         photoZoneShape: type === "photo" ? photoZone.shape : undefined,
         nameZoneEnabled: type === "photo" ? photoZone.nameEnabled : undefined,
         nameZoneY: type === "photo" ? photoZone.nameY : undefined,
+        // Champs de paiement
+        paymentStatus: paymentStatus as Campaign["paymentStatus"],
+        transactionCode: isVideoFilter ? transactionCode : null,
+        paymentCountry: isVideoFilter ? country : null,
+        paymentAmount: isVideoFilter ? VIDEO_PRICE : 0,
       };
 
       onCreate(campaign);

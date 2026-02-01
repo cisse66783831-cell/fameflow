@@ -15,8 +15,9 @@ export function useFeaturedCampaigns() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('campaigns')
-        .select('id, title, frame_image, type, slug')
+        .select('id, title, frame_image, type, slug, payment_status')
         .eq('is_featured', true)
+        .in('payment_status', ['free', 'approved']) // Only show active campaigns
         .order('display_order', { ascending: true })
         .limit(20);
 
