@@ -30,7 +30,8 @@ const mapDbToCampaign = (db: {
   created_at: string;
   updated_at: string;
   slug?: string | null;
-}): Campaign & { slug?: string | null } => ({
+  payment_status?: string | null;
+}): Campaign & { slug?: string | null; paymentStatus?: string | null } => ({
   id: db.id,
   title: db.title,
   description: db.description || '',
@@ -46,6 +47,7 @@ const mapDbToCampaign = (db: {
   createdAt: new Date(db.created_at),
   isDemo: db.is_demo,
   slug: db.slug,
+  paymentStatus: db.payment_status as Campaign['paymentStatus'],
 });
 
 const CampaignBySlugPage = () => {
@@ -62,11 +64,12 @@ const CampaignBySlugPage = () => {
         return;
       }
 
-      // First try by slug
+      // First try by slug (only show approved or free campaigns)
       let { data, error: fetchError } = await supabase
         .from('campaigns')
         .select('*')
         .eq('slug', slug)
+        .in('payment_status', ['free', 'approved'])
         .maybeSingle();
 
       // If not found by slug, try by ID (backwards compatibility)
@@ -75,6 +78,7 @@ const CampaignBySlugPage = () => {
           .from('campaigns')
           .select('*')
           .eq('id', slug)
+          .in('payment_status', ['free', 'approved'])
           .maybeSingle();
         data = dataById;
         fetchError = errorById;
