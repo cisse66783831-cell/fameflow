@@ -1,145 +1,126 @@
 
-# Plan de restauration : Upload et Validation des campagnes vidéo
+# Analyse des Incohérences dans le Code
 
-## Diagnostic des problèmes
+## Resume des problemes identifies
 
-| Probleme | Actuel | Attendu |
-|----------|--------|---------|
-| Structure upload | Modal simplifie sans zones photo/IA | Modal detaille comme CreateEventModal avec onglets |
-| Validation video admin | Inexistante (infos dans description) | Panneau dedie avec statuts et actions |
-| Base de donnees | Pas de colonnes payment | Colonnes dediees pour tracking |
+J'ai examine en detail les fichiers principaux lies a la creation de campagnes et a la validation admin. Voici les incoherences detectees :
 
-## Architecture de la solution
+---
 
-```text
-FLUX CREATION CAMPAGNE VIDEO:
+## 1. Type de campagne "document" non gere pour le paiement
 
-Utilisateur                   Base de donnees                    Admin
-    |                              |                              |
-    |--[1. Configure cadre]------->|                              |
-    |--[2. Paye + entre code]----->|                              |
-    |                              |--[Statut: PENDING]---------->|
-    |                              |                              |
-    |                              |<--[3. Valide paiement]-------|
-    |<--[4. Email notification]----|                              |
-    |                              |--[Statut: APPROVED]          |
-    |--[5. Campagne active]------->|                              |
-```
+| Fichier | Probleme |
+|---------|----------|
+| `CreateCampaignModal.tsx` | Le type `document` est present dans l'interface (3 options : photo, video_filter, document) mais la logique de paiement ne gere que `photo` (gratuit) et `video_filter` (payant) |
+| Impact | Les campagnes "document" ne passent pas par l'etape de paiement et n'ont pas de statut de paiement defini |
 
-## Modifications a effectuer
+**Correction suggeree :**
+- Clarifier si les campagnes "document" sont gratuites comme "photo" ou payantes
+- Ajouter explicitement `payment_status: 'free'` lors de la creation de documents
 
-### 1. Migration SQL - Nouvelles colonnes
+---
 
-Ajouter des colonnes dediees a la table `campaigns` :
+## 2. Colonnes payment non utilisees dans handleCreate()
 
-```sql
-ALTER TABLE public.campaigns
-ADD COLUMN payment_status TEXT DEFAULT 'free' CHECK (payment_status IN ('free', 'pending', 'approved', 'rejected')),
-ADD COLUMN transaction_code TEXT,
-ADD COLUMN payment_country TEXT,
-ADD COLUMN payment_amount INTEGER DEFAULT 0;
-```
+| Fichier | Ligne | Probleme |
+|---------|-------|----------|
+| `CreateCampaignModal.tsx` | ~325-349 | L'objet `campaign` cree n'inclut PAS les champs `paymentStatus`, `transactionCode`, `paymentCountry`, `paymentAmount` |
 
-- `payment_status`: 'free' pour Photo, 'pending'/'approved'/'rejected' pour Video
-- `transaction_code`: Code de transaction Mobile Money
-- `payment_country`: Code pays (BF, CI, ML, OTHER)
-- `payment_amount`: Montant paye en FCFA
-
-### 2. Refonte de CreateCampaignModal.tsx
-
-Restaurer la structure complete avec onglets :
-
-**Onglet 1 - Details :**
-- Type (Photo gratuit / Video payant)
-- Titre et description
-- Upload image du cadre via ImageUploader existant
-
-**Onglet 2 - Zone Photo (optionnel) :**
-- Integration de PhotoZoneEditor comme dans CreateEventModal
-- Permet de definir ou placer la photo du participant
-
-**Onglet 3 - Paiement (Video seulement) :**
-- Selecteur de pays
-- Instructions de paiement dynamiques (numero + USSD pour BF)
-- Champ code de transaction
-- Message explicatif sur la validation
-
-**Logique de soumission :**
-- Si Photo : `payment_status = 'free'`, creation immediate
-- Si Video : `payment_status = 'pending'`, creation en attente
-
-### 3. Nouveau composant AdminVideoCampaignValidation.tsx
-
-Panneau dedie dans SuperAdmin pour gerer les campagnes video en attente :
-
+**Code actuel (incorrect) :**
 ```typescript
-interface PendingCampaign {
-  id: string;
-  title: string;
-  frame_image: string;
-  transaction_code: string;
-  payment_country: string;
-  payment_amount: number;
-  owner_name: string;
-  created_at: string;
-}
+const campaign: Campaign = {
+  // ... autres champs
+  // MANQUANT: paymentStatus, transactionCode, paymentCountry, paymentAmount
+};
 ```
 
-**Fonctionnalites :**
-- Liste des campagnes avec `payment_status = 'pending'`
-- Affichage du code transaction et pays
-- Boutons Valider / Rejeter
-- Envoi email automatique apres validation (via Edge Function)
-
-### 4. Mise a jour de AdminCampaignList.tsx
-
-Ajouter des badges visuels pour le statut de paiement :
-- Badge vert "Actif" pour `approved` ou `free`
-- Badge orange "En attente" pour `pending`
-- Badge rouge "Rejete" pour `rejected`
-
-Filtrer pour afficher uniquement les campagnes actives par defaut.
-
-### 5. Mise a jour de SuperAdmin.tsx
-
-Ajouter un nouvel onglet "Validations Video" :
-
+**Correction suggeree :**
 ```typescript
-<TabsTrigger value="video-validation">
-  Validations Video
-  {pendingCount > 0 && <Badge>{pendingCount}</Badge>}
-</TabsTrigger>
-
-<TabsContent value="video-validation">
-  <AdminVideoCampaignValidation
-    campaigns={pendingVideoCampaigns}
-    onRefresh={fetchCampaigns}
-    isLoading={isLoadingData}
-  />
-</TabsContent>
+const campaign: Campaign = {
+  // ... autres champs
+  paymentStatus: type === 'video_filter' ? 'pending' : 'free',
+  transactionCode: type === 'video_filter' ? transactionCode : null,
+  paymentCountry: type === 'video_filter' ? country : null,
+  paymentAmount: type === 'video_filter' ? VIDEO_PRICE : 0,
+};
 ```
 
-### 6. Edge Function pour email de notification (optionnel)
+---
 
-Creer `supabase/functions/notify-campaign-approval/index.ts` :
-- Declenche apres validation par l'admin
-- Envoie email a l'utilisateur avec lien vers sa campagne
+## 3. Incoherence de types entre composants admin
 
-## Fichiers a modifier/creer
+| Fichier | Interface locale | Champ |
+|---------|------------------|-------|
+| `AdminCampaignList.tsx` | `Campaign` (locale) | `frame_image` (snake_case) |
+| `AdminVideoCampaignValidation.tsx` | `PendingCampaign` | `frame_image` (snake_case) |
+| `src/types/campaign.ts` | `Campaign` (globale) | `frameImage` (camelCase) |
 
-| Fichier | Action |
+**Probleme :** Les composants admin utilisent leurs propres interfaces locales avec des noms de champs snake_case (correspondant a la base de donnees) au lieu d'utiliser le type `Campaign` global. C'est coherent car ils travaillent directement avec les donnees Supabase, mais cela peut creer de la confusion.
+
+**Recommandation :** Acceptable car les composants admin requetent directement Supabase et n'utilisent pas le hook `useCampaigns`. Cependant, il serait preferable de creer un type separe `CampaignDB` pour les donnees brutes.
+
+---
+
+## 4. Filtrage des campagnes publiques
+
+| Fichier | Probleme |
+|---------|----------|
+| `useCampaigns.ts` | Le hook recupere TOUTES les campagnes de l'utilisateur sans filtrer par `payment_status` |
+| Impact | Les campagnes video en "pending" ou "rejected" apparaissent dans le dashboard utilisateur |
+
+**Correction suggeree :**
+- Pour l'affichage public, filtrer : `payment_status IN ('free', 'approved')`
+- Ou ajouter un badge "En attente de validation" pour les campagnes pending de l'utilisateur
+
+---
+
+## 5. Description polluee par les metadonnees de paiement
+
+| Fichier | Ligne | Probleme |
+|---------|-------|----------|
+| `CreateCampaignModal.tsx` | ~303 | Le code injecte les metadonnees dans la description : `[PAYS: ${country} - PAIEMENT: ${transactionCode}...]` |
+
+**Probleme :** Cette approche est maintenant obsolete car nous avons des colonnes dediees (`transaction_code`, `payment_country`, etc.). Le code le fait DEUX fois :
+1. Met les infos dans `description`
+2. (Devrait) les mettre dans les colonnes dediees (mais ne le fait pas - voir point 2)
+
+**Correction suggeree :**
+- Supprimer l'injection dans la description
+- Utiliser uniquement les colonnes dediees
+
+---
+
+## 6. Email de notification non implemente
+
+| Element | Statut |
 |---------|--------|
-| Migration SQL | Creer - nouvelles colonnes payment |
-| src/components/CreateCampaignModal.tsx | Modifier - structure avec onglets + PhotoZoneEditor |
-| src/components/admin/AdminVideoCampaignValidation.tsx | Creer - nouveau panneau validation |
-| src/components/admin/AdminCampaignList.tsx | Modifier - badges statut + filtres |
-| src/pages/SuperAdmin.tsx | Modifier - ajouter onglet validation |
-| src/types/campaign.ts | Modifier - ajouter types payment |
-| src/hooks/useCampaigns.ts | Modifier - mapper nouvelles colonnes |
+| Edge Function `notify-campaign-approval` | Non cree |
+| Envoi d'email apres approbation | Non implemente |
 
-## Resultat attendu
+Le message utilisateur indique "Vous recevrez automatiquement un email" mais aucune Edge Function n'envoie cet email.
 
-1. **Createur** : Interface claire avec onglets (Details > Zone Photo > Paiement)
-2. **Admin** : Panneau dedie pour valider les paiements video avec toutes les infos
-3. **Tracking** : Colonnes dediees au lieu d'injecter dans la description
-4. **Visibilite** : Campagnes video "pending" non visibles publiquement jusqu'a validation
+---
+
+## Tableau recapitulatif des corrections prioritaires
+
+| # | Probleme | Priorite | Fichier(s) |
+|---|----------|----------|------------|
+| 1 | Champs payment non passes a onCreate | CRITIQUE | CreateCampaignModal.tsx |
+| 2 | Description polluee inutilement | HAUTE | CreateCampaignModal.tsx |
+| 3 | Campagnes pending visibles publiquement | MOYENNE | Queries publiques (a verifier) |
+| 4 | Edge Function email manquante | BASSE | A creer |
+
+---
+
+## Plan de correction
+
+### Etape 1 : Corriger CreateCampaignModal.tsx
+- Ajouter les champs `paymentStatus`, `transactionCode`, `paymentCountry`, `paymentAmount` a l'objet campaign
+- Supprimer l'injection de metadonnees dans la description
+- Clarifier le traitement du type "document"
+
+### Etape 2 : Verifier les requetes publiques
+- S'assurer que les campagnes avec `payment_status = 'pending'` ou `'rejected'` ne sont pas visibles publiquement
+
+### Etape 3 (Optionnel) : Creer l'Edge Function d'email
+- Implementer `notify-campaign-approval` pour envoyer un email lors de la validation admin
