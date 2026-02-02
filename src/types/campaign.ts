@@ -19,6 +19,7 @@ export type DocumentFormat = 'a4-landscape' | 'a4-portrait' | 'square' | 'badge'
 export type DocumentCategory = 'certificate' | 'attestation' | 'diploma' | 'badge' | 'invitation';
 
 export type PaymentStatus = 'free' | 'pending' | 'approved' | 'rejected';
+export type WatermarkStatus = 'active' | 'pending' | 'removed';
 
 export interface Campaign {
   id: string;
@@ -52,6 +53,9 @@ export interface Campaign {
   transactionCode?: string | null;
   paymentCountry?: string | null;
   paymentAmount?: number | null;
+  // Watermark tracking for photo campaigns
+  watermarkStatus?: WatermarkStatus;
+  watermarkRemovalRequestedAt?: Date | null;
 }
 
 export interface ParticipantData {
