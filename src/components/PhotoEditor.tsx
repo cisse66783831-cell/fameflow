@@ -4,13 +4,19 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import {
   Upload, ZoomIn, ZoomOut, RotateCw, Download,
-  Move, Type, GripVertical, FileText
+  Move, Type, GripVertical, FileText, Droplets, Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { getCampaignPublicUrl } from '@/lib/publicUrls';
 import jsPDF from 'jspdf';
 import { SocialShare } from './SocialShare';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+
+// Watermark text constant
+const WATERMARK_TEXT = 'créé sur jyserai.site';
+
 interface PhotoEditorProps {
   campaign: Campaign;
   onDownload: () => void;
@@ -29,6 +35,11 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
   const [textDragStart, setTextDragStart] = useState({ x: 0, y: 0, elemX: 0, elemY: 0 });
   const [imageBlob, setImageBlob] = useState<Blob | null>(null);
   const [userName, setUserName] = useState('');
+  const [isRequestingWatermarkRemoval, setIsRequestingWatermarkRemoval] = useState(false);
+  const { user } = useAuth();
+
+  // Check if watermark should be shown (only for photo campaigns, not removed)
+  const showWatermark = campaign.type === 'photo' && campaign.watermarkStatus !== 'removed';
 
   // Calculate canvas size based on document format (aperçu)
   const getCanvasSize = () => {
@@ -157,6 +168,45 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
       }
       ctx.restore();
     });
+
+    // Draw watermark if enabled
+    if (showWatermark) {
+      drawWatermark(ctx, CANVAS_WIDTH, CANVAS_HEIGHT);
+    }
+  };
+
+  // Draw watermark function
+  const drawWatermark = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
+    ctx.save();
+    
+    // Position at bottom right with padding
+    const padding = width * 0.03;
+    const fontSize = Math.max(12, width * 0.028);
+    
+    ctx.font = `500 ${fontSize}px Inter, system-ui, sans-serif`;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'bottom';
+    
+    // Semi-transparent background pill
+    const text = WATERMARK_TEXT;
+    const metrics = ctx.measureText(text);
+    const pillPadding = fontSize * 0.4;
+    const pillHeight = fontSize + pillPadding * 2;
+    const pillWidth = metrics.width + pillPadding * 3;
+    const pillX = width - padding - pillWidth;
+    const pillY = height - padding - pillHeight;
+    
+    // Draw pill background
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.beginPath();
+    ctx.roundRect(pillX, pillY, pillWidth, pillHeight, pillHeight / 2);
+    ctx.fill();
+    
+    // Draw text
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.fillText(text, width - padding - pillPadding, height - padding - pillPadding);
+    
+    ctx.restore();
   };
 
   useEffect(() => {
@@ -343,6 +393,11 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
         hdCtx.restore();
       });
 
+      // Draw watermark in HD if enabled
+      if (showWatermark) {
+        drawWatermark(hdCtx, HD_SIZE.width, HD_SIZE.height);
+      }
+
       // Check for iOS device
       const isIOSDevice = isIOS();
 
@@ -478,6 +533,11 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
         hdCtx.restore();
       });
 
+      // Draw watermark in HD for PDF if enabled
+      if (showWatermark) {
+        drawWatermark(hdCtx, HD_SIZE.width, HD_SIZE.height);
+      }
+
       // Create PDF with HD image
       const isLandscape = HD_SIZE.width > HD_SIZE.height;
       const pdf = new jsPDF({
@@ -561,6 +621,34 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
     setTextElements(prev => prev.map(elem => 
       elem.id === id ? { ...elem, value } : elem
     ));
+  };
+
+  // Request watermark removal
+  const handleRequestWatermarkRemoval = async () => {
+    if (!user) {
+      toast.error('Vous devez être connecté pour demander le retrait du filigrane');
+      return;
+    }
+
+    setIsRequestingWatermarkRemoval(true);
+    try {
+      const { error } = await supabase
+        .from('campaigns')
+        .update({ 
+          watermark_status: 'pending',
+          watermark_removal_requested_at: new Date().toISOString()
+        })
+        .eq('id', campaign.id);
+
+      if (error) throw error;
+      
+      toast.success('Demande envoyée ! Un admin validera bientôt le retrait du filigrane.');
+    } catch (error) {
+      console.error('Error requesting watermark removal:', error);
+      toast.error('Erreur lors de la demande');
+    } finally {
+      setIsRequestingWatermarkRemoval(false);
+    }
   };
 
   return (
@@ -723,6 +811,29 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
             <FileText className="w-4 h-4 mr-2" />
             Download PDF
           </Button>
+
+          {/* Watermark removal request button - only for campaign owners */}
+          {showWatermark && user && campaign.watermarkStatus !== 'pending' && (
+            <Button 
+              variant="outline" 
+              className="w-full text-blue-600 border-blue-500/30 hover:bg-blue-500/10"
+              onClick={handleRequestWatermarkRemoval}
+              disabled={isRequestingWatermarkRemoval}
+            >
+              {isRequestingWatermarkRemoval ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Droplets className="w-4 h-4 mr-2" />
+              )}
+              Retirer le filigrane
+            </Button>
+          )}
+
+          {campaign.watermarkStatus === 'pending' && (
+            <div className="text-xs text-center text-amber-600 bg-amber-500/10 p-2 rounded-lg">
+              ⏳ Demande de retrait en cours de validation
+            </div>
+          )}
         </div>
 
         {/* User Name Input for Sharing */}

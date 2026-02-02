@@ -21,6 +21,7 @@ import { AdminTransactionList } from '@/components/admin/AdminTransactionList';
 import { AdminModerationPanel } from '@/components/admin/AdminModerationPanel';
 import { AdminLandingPagePanel } from '@/components/admin/AdminLandingPagePanel';
 import { AdminVideoCampaignValidation } from '@/components/admin/AdminVideoCampaignValidation';
+import { AdminWatermarkValidation } from '@/components/admin/AdminWatermarkValidation';
 import { AppRole } from '@/types/ticket';
 import { Badge } from '@/components/ui/badge';
 
@@ -215,10 +216,10 @@ export default function SuperAdminPage() {
   };
 
   const fetchCampaigns = async () => {
-    // Fetch campaigns with profile info including payment fields
+    // Fetch campaigns with profile info including payment and watermark fields
     const { data: campaignsData } = await supabase
       .from('campaigns')
-      .select('id, title, slug, views, created_at, user_id, frame_image, is_featured, display_order, type, payment_status, transaction_code, payment_country, payment_amount')
+      .select('id, title, slug, views, created_at, user_id, frame_image, is_featured, display_order, type, payment_status, transaction_code, payment_country, payment_amount, watermark_status, watermark_removal_requested_at')
       .order('created_at', { ascending: false });
 
     // Fetch real download counts from download_stats (source of truth)
@@ -436,6 +437,14 @@ export default function SuperAdminPage() {
                   </Badge>
                 )}
               </TabsTrigger>
+              <TabsTrigger value="watermark-validation" className="gap-2">
+                Filigranes
+                {campaigns.filter(c => c.watermark_status === 'pending').length > 0 && (
+                  <Badge variant="destructive" className="ml-1 h-5 px-1.5">
+                    {campaigns.filter(c => c.watermark_status === 'pending').length}
+                  </Badge>
+                )}
+              </TabsTrigger>
               <TabsTrigger value="users">Utilisateurs</TabsTrigger>
               <TabsTrigger value="events">Événements</TabsTrigger>
               <TabsTrigger value="campaigns">Campagnes</TabsTrigger>
@@ -550,6 +559,14 @@ export default function SuperAdminPage() {
 
             <TabsContent value="video-validation">
               <AdminVideoCampaignValidation 
+                campaigns={campaigns} 
+                onRefresh={fetchCampaigns} 
+                isLoading={isLoadingData} 
+              />
+            </TabsContent>
+
+            <TabsContent value="watermark-validation">
+              <AdminWatermarkValidation 
                 campaigns={campaigns} 
                 onRefresh={fetchCampaigns} 
                 isLoading={isLoadingData} 
