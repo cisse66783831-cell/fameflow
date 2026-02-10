@@ -56,6 +56,7 @@ export interface Campaign {
   // Watermark tracking for photo campaigns
   watermarkStatus?: WatermarkStatus;
   watermarkRemovalRequestedAt?: Date | null;
+  watermarkPaymentAmount?: number | null;
 }
 
 export interface ParticipantData {

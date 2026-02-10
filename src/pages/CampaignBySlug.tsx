@@ -31,6 +31,8 @@ const mapDbToCampaign = (db: {
   updated_at: string;
   slug?: string | null;
   payment_status?: string | null;
+  watermark_status?: string | null;
+  watermark_payment_amount?: number | null;
 }): Campaign & { slug?: string | null; paymentStatus?: string | null } => ({
   id: db.id,
   title: db.title,
@@ -48,6 +50,8 @@ const mapDbToCampaign = (db: {
   isDemo: db.is_demo,
   slug: db.slug,
   paymentStatus: db.payment_status as Campaign['paymentStatus'],
+  watermarkStatus: db.watermark_status as Campaign['watermarkStatus'],
+  watermarkPaymentAmount: db.watermark_payment_amount,
 });
 
 const CampaignBySlugPage = () => {

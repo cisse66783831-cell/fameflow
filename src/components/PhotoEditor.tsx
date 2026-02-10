@@ -21,9 +21,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
 // --- WATERMARK PAYMENT CONFIG ---
-const WATERMARK_PRICE = 1000;
+const DEFAULT_WATERMARK_PRICE = 1000;
 const MERCHANT_NUMBER = "+226 66 78 38 31";
-const USSD_BF = `*144*2*1*66783831*${WATERMARK_PRICE}#`;
 
 // Watermark text constant
 const WATERMARK_TEXT = 'créé sur jyserai.site';
@@ -52,6 +51,10 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
   const [wmTransactionCode, setWmTransactionCode] = useState('');
   const [wmCopiedUSSD, setWmCopiedUSSD] = useState(false);
   const { user } = useAuth();
+
+  // Dynamic watermark price from campaign or default
+  const watermarkPrice = campaign.watermarkPaymentAmount ?? DEFAULT_WATERMARK_PRICE;
+  const USSD_BF = `*144*2*1*66783831*${watermarkPrice}#`;
 
   // Check if watermark should be shown (only for photo campaigns, not removed)
   const showWatermark = campaign.type === 'photo' && campaign.watermarkStatus !== 'removed';
@@ -658,7 +661,7 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
           watermark_removal_requested_at: new Date().toISOString(),
           watermark_transaction_code: wmTransactionCode.trim(),
           watermark_payment_country: wmCountry,
-          watermark_payment_amount: WATERMARK_PRICE,
+          watermark_payment_amount: watermarkPrice,
         } as any)
         .eq('id', campaign.id);
 
@@ -851,7 +854,7 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
               onClick={() => setShowWatermarkPayment(true)}
             >
               <Droplets className="w-4 h-4 mr-2" />
-              Retirer le filigrane ({WATERMARK_PRICE.toLocaleString()} FCFA)
+              Retirer le filigrane ({watermarkPrice.toLocaleString()} FCFA)
             </Button>
           )}
 
@@ -871,7 +874,7 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
                 Retirer le filigrane
               </DialogTitle>
               <DialogDescription>
-                Payez {WATERMARK_PRICE.toLocaleString()} FCFA pour retirer définitivement le filigrane de cette campagne.
+                Payez {watermarkPrice.toLocaleString()} FCFA pour retirer définitivement le filigrane de cette campagne.
               </DialogDescription>
             </DialogHeader>
 
@@ -910,7 +913,7 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
                 </div>
               ) : (
                 <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 space-y-2">
-                  <p className="text-sm font-medium">Envoyez {WATERMARK_PRICE.toLocaleString()} FCFA à :</p>
+                  <p className="text-sm font-medium">Envoyez {watermarkPrice.toLocaleString()} FCFA à :</p>
                   <div className="flex items-center gap-2">
                     <Phone className="w-4 h-4 text-muted-foreground" />
                     <span className="font-mono font-bold">{MERCHANT_NUMBER}</span>
