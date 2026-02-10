@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { 
   Droplets, Search, RefreshCw, Loader2, CheckCircle2, XCircle, 
-  Clock, ExternalLink, User, Calendar, Image
+  Clock, ExternalLink, User, Calendar, Image, CreditCard, Globe, Phone
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -27,12 +27,22 @@ interface PendingWatermarkCampaign {
   frame_image: string | null;
   watermark_status: string;
   watermark_removal_requested_at: string | null;
+  watermark_transaction_code?: string | null;
+  watermark_payment_country?: string | null;
+  watermark_payment_amount?: number | null;
   slug: string | null;
   created_at: string;
   user_id: string;
   owner_name?: string;
   owner_email?: string;
 }
+
+const countryLabels: Record<string, string> = {
+  BF: '🇧🇫 Burkina Faso',
+  CI: '🇨🇮 Côte d\'Ivoire',
+  ML: '🇲🇱 Mali',
+  OTHER: '🌍 Autre',
+};
 
 interface AdminWatermarkValidationProps {
   campaigns: PendingWatermarkCampaign[];
@@ -192,6 +202,35 @@ export function AdminWatermarkValidation({ campaigns, onRefresh, isLoading }: Ad
                     <Clock className="w-3 h-3 mr-1" />
                     En attente
                   </Badge>
+                </div>
+
+                {/* Payment Details */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-background/80 border">
+                    <CreditCard className="w-4 h-4 text-primary" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Code transaction</p>
+                      <p className="font-mono font-bold text-sm">{campaign.watermark_transaction_code || 'N/A'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-background/80 border">
+                    <Globe className="w-4 h-4 text-primary" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Pays</p>
+                      <p className="font-medium text-sm">
+                        {countryLabels[campaign.watermark_payment_country || ''] || campaign.watermark_payment_country || 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-background/80 border">
+                    <Phone className="w-4 h-4 text-primary" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Montant</p>
+                      <p className="font-bold text-sm text-green-600">
+                        {(campaign.watermark_payment_amount || 0).toLocaleString()} FCFA
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Actions */}

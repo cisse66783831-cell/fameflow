@@ -219,7 +219,7 @@ export default function SuperAdminPage() {
     // Fetch campaigns with profile info including payment and watermark fields
     const { data: campaignsData } = await supabase
       .from('campaigns')
-      .select('id, title, slug, views, created_at, user_id, frame_image, is_featured, display_order, type, payment_status, transaction_code, payment_country, payment_amount, watermark_status, watermark_removal_requested_at')
+      .select('id, title, slug, views, created_at, user_id, frame_image, is_featured, display_order, type, payment_status, transaction_code, payment_country, payment_amount, watermark_status, watermark_removal_requested_at, watermark_transaction_code, watermark_payment_country, watermark_payment_amount')
       .order('created_at', { ascending: false });
 
     // Fetch real download counts from download_stats (source of truth)
