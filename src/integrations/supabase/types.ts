@@ -46,8 +46,11 @@ export type Database = {
           updated_at: string
           user_id: string
           views: number
+          watermark_payment_amount: number | null
+          watermark_payment_country: string | null
           watermark_removal_requested_at: string | null
           watermark_status: string | null
+          watermark_transaction_code: string | null
         }
         Insert: {
           background_image?: string | null
@@ -80,8 +83,11 @@ export type Database = {
           updated_at?: string
           user_id: string
           views?: number
+          watermark_payment_amount?: number | null
+          watermark_payment_country?: string | null
           watermark_removal_requested_at?: string | null
           watermark_status?: string | null
+          watermark_transaction_code?: string | null
         }
         Update: {
           background_image?: string | null
@@ -114,8 +120,11 @@ export type Database = {
           updated_at?: string
           user_id?: string
           views?: number
+          watermark_payment_amount?: number | null
+          watermark_payment_country?: string | null
           watermark_removal_requested_at?: string | null
           watermark_status?: string | null
+          watermark_transaction_code?: string | null
         }
         Relationships: [
           {

@@ -2,9 +2,15 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Campaign, TextElement } from '@/types/campaign';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from '@/components/ui/dialog';
 import {
   Upload, ZoomIn, ZoomOut, RotateCw, Download,
-  Move, Type, GripVertical, FileText, Droplets, Loader2
+  Move, Type, GripVertical, FileText, Droplets, Loader2,
+  Globe, CreditCard, Copy, CheckCircle2, Phone
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -13,6 +19,11 @@ import jsPDF from 'jspdf';
 import { SocialShare } from './SocialShare';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+
+// --- WATERMARK PAYMENT CONFIG ---
+const WATERMARK_PRICE = 1000;
+const MERCHANT_NUMBER = "+226 66 78 38 31";
+const USSD_BF = `*144*2*1*66783831*${WATERMARK_PRICE}#`;
 
 // Watermark text constant
 const WATERMARK_TEXT = 'créé sur jyserai.site';
@@ -36,6 +47,10 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
   const [imageBlob, setImageBlob] = useState<Blob | null>(null);
   const [userName, setUserName] = useState('');
   const [isRequestingWatermarkRemoval, setIsRequestingWatermarkRemoval] = useState(false);
+  const [showWatermarkPayment, setShowWatermarkPayment] = useState(false);
+  const [wmCountry, setWmCountry] = useState('BF');
+  const [wmTransactionCode, setWmTransactionCode] = useState('');
+  const [wmCopiedUSSD, setWmCopiedUSSD] = useState(false);
   const { user } = useAuth();
 
   // Check if watermark should be shown (only for photo campaigns, not removed)
@@ -623,10 +638,14 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
     ));
   };
 
-  // Request watermark removal
+  // Request watermark removal with payment
   const handleRequestWatermarkRemoval = async () => {
     if (!user) {
       toast.error('Vous devez être connecté pour demander le retrait du filigrane');
+      return;
+    }
+    if (!wmTransactionCode.trim()) {
+      toast.error('Veuillez entrer le code de transaction');
       return;
     }
 
@@ -636,12 +655,17 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
         .from('campaigns')
         .update({ 
           watermark_status: 'pending',
-          watermark_removal_requested_at: new Date().toISOString()
-        })
+          watermark_removal_requested_at: new Date().toISOString(),
+          watermark_transaction_code: wmTransactionCode.trim(),
+          watermark_payment_country: wmCountry,
+          watermark_payment_amount: WATERMARK_PRICE,
+        } as any)
         .eq('id', campaign.id);
 
       if (error) throw error;
       
+      setShowWatermarkPayment(false);
+      setWmTransactionCode('');
       toast.success('Demande envoyée ! Un admin validera bientôt le retrait du filigrane.');
     } catch (error) {
       console.error('Error requesting watermark removal:', error);
@@ -649,6 +673,13 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
     } finally {
       setIsRequestingWatermarkRemoval(false);
     }
+  };
+
+  const handleCopyUSSD = () => {
+    navigator.clipboard.writeText(USSD_BF);
+    setWmCopiedUSSD(true);
+    toast.success('Code USSD copié !');
+    setTimeout(() => setWmCopiedUSSD(false), 3000);
   };
 
   return (
@@ -816,16 +847,11 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
           {showWatermark && user && campaign.watermarkStatus !== 'pending' && (
             <Button 
               variant="outline" 
-              className="w-full text-blue-600 border-blue-500/30 hover:bg-blue-500/10"
-              onClick={handleRequestWatermarkRemoval}
-              disabled={isRequestingWatermarkRemoval}
+              className="w-full text-primary border-primary/30 hover:bg-primary/10"
+              onClick={() => setShowWatermarkPayment(true)}
             >
-              {isRequestingWatermarkRemoval ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Droplets className="w-4 h-4 mr-2" />
-              )}
-              Retirer le filigrane
+              <Droplets className="w-4 h-4 mr-2" />
+              Retirer le filigrane ({WATERMARK_PRICE.toLocaleString()} FCFA)
             </Button>
           )}
 
@@ -835,6 +861,104 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
             </div>
           )}
         </div>
+
+        {/* Watermark Payment Dialog */}
+        <Dialog open={showWatermarkPayment} onOpenChange={setShowWatermarkPayment}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Droplets className="w-5 h-5 text-primary" />
+                Retirer le filigrane
+              </DialogTitle>
+              <DialogDescription>
+                Payez {WATERMARK_PRICE.toLocaleString()} FCFA pour retirer définitivement le filigrane de cette campagne.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {/* Country selector */}
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Votre pays</label>
+                <Select value={wmCountry} onValueChange={setWmCountry}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="BF">🇧🇫 Burkina Faso</SelectItem>
+                    <SelectItem value="CI">🇨🇮 Côte d'Ivoire</SelectItem>
+                    <SelectItem value="ML">🇲🇱 Mali</SelectItem>
+                    <SelectItem value="OTHER">🌍 Autre pays</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Payment instructions */}
+              {wmCountry === 'BF' ? (
+                <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 space-y-3">
+                  <p className="text-sm font-medium">Paiement via Orange Money</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 text-sm bg-background p-2 rounded border font-mono">
+                      {USSD_BF}
+                    </code>
+                    <Button size="sm" variant="outline" onClick={handleCopyUSSD}>
+                      {wmCopiedUSSD ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Composez ce code USSD sur votre téléphone pour effectuer le paiement.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 space-y-2">
+                  <p className="text-sm font-medium">Envoyez {WATERMARK_PRICE.toLocaleString()} FCFA à :</p>
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-muted-foreground" />
+                    <span className="font-mono font-bold">{MERCHANT_NUMBER}</span>
+                    <Button size="sm" variant="ghost" onClick={() => {
+                      navigator.clipboard.writeText(MERCHANT_NUMBER);
+                      toast.success('Numéro copié !');
+                    }}>
+                      <Copy className="w-3 h-3" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Via Orange Money, MTN MoMo, Wave ou tout autre service de transfert.
+                  </p>
+                </div>
+              )}
+
+              {/* Transaction code */}
+              <div>
+                <label className="text-sm font-medium mb-1.5 block flex items-center gap-2">
+                  <CreditCard className="w-4 h-4" />
+                  Code de transaction
+                </label>
+                <Input
+                  value={wmTransactionCode}
+                  onChange={(e) => setWmTransactionCode(e.target.value)}
+                  placeholder="Ex: MP240101.1234.A56789"
+                  className="font-mono"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Entrez le code reçu après votre paiement.
+                </p>
+              </div>
+
+              <Button
+                className="w-full"
+                onClick={handleRequestWatermarkRemoval}
+                disabled={isRequestingWatermarkRemoval || !wmTransactionCode.trim()}
+              >
+                {isRequestingWatermarkRemoval ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                )}
+                Envoyer la demande
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* User Name Input for Sharing */}
         {campaign.type === 'photo' && (
