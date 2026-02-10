@@ -53,6 +53,8 @@ interface AdminWatermarkValidationProps {
 export function AdminWatermarkValidation({ campaigns, onRefresh, isLoading }: AdminWatermarkValidationProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [defaultPrice, setDefaultPrice] = useState(1000);
+  const [isSavingPrice, setIsSavingPrice] = useState(false);
 
   // Filter only pending watermark removal requests
   const pendingCampaigns = campaigns.filter(
@@ -107,6 +109,27 @@ export function AdminWatermarkValidation({ campaigns, onRefresh, isLoading }: Ad
     }
   };
 
+  const handleUpdateDefaultPrice = async () => {
+    if (defaultPrice < 0) return;
+    setIsSavingPrice(true);
+    try {
+      const { error } = await supabase
+        .from('campaigns')
+        .update({ watermark_payment_amount: defaultPrice })
+        .eq('type', 'photo')
+        .eq('watermark_status', 'active');
+
+      if (error) throw error;
+      toast.success(`Montant mis à jour à ${defaultPrice.toLocaleString()} FCFA pour toutes les campagnes photo actives.`);
+      onRefresh();
+    } catch (error) {
+      console.error('Error updating default price:', error);
+      toast.error('Erreur lors de la mise à jour du montant');
+    } finally {
+      setIsSavingPrice(false);
+    }
+  };
+
   return (
     <Card className="bg-card/50 border-border/50">
       <CardHeader>
@@ -141,6 +164,39 @@ export function AdminWatermarkValidation({ campaigns, onRefresh, isLoading }: Ad
           </div>
         </div>
       </CardHeader>
+
+      {/* Default Price Configuration */}
+      <CardContent className="pb-2">
+        <div className="flex flex-col sm:flex-row sm:items-end gap-3 p-4 rounded-xl border border-border bg-muted/30">
+          <div className="flex-1">
+            <label className="text-sm font-medium mb-1.5 block flex items-center gap-2">
+              <CreditCard className="w-4 h-4" />
+              Montant par défaut du retrait (FCFA)
+            </label>
+            <Input
+              type="number"
+              min={0}
+              step={100}
+              value={defaultPrice}
+              onChange={(e) => setDefaultPrice(Number(e.target.value))}
+              className="max-w-[200px]"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Appliqué à toutes les campagnes photo avec filigrane actif.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            onClick={handleUpdateDefaultPrice}
+            disabled={isSavingPrice}
+            className="gap-2"
+          >
+            {isSavingPrice ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+            Appliquer
+          </Button>
+        </div>
+      </CardContent>
+
       <CardContent>
         {isLoading ? (
           <div className="flex items-center justify-center py-12">

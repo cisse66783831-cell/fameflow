@@ -39,6 +39,8 @@ const mapDbToCampaign = (db: {
   downloads: db.downloads,
   createdAt: new Date(db.created_at),
   isDemo: db.is_demo,
+  watermarkStatus: (db as any).watermark_status as Campaign['watermarkStatus'],
+  watermarkPaymentAmount: (db as any).watermark_payment_amount,
 });
 
 const CampaignPage = () => {

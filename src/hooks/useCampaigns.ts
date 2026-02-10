@@ -61,6 +61,8 @@ const mapDbToCampaign = (db: {
   transactionCode: db.transaction_code,
   paymentCountry: db.payment_country,
   paymentAmount: db.payment_amount,
+  watermarkStatus: (db as any).watermark_status as Campaign['watermarkStatus'],
+  watermarkPaymentAmount: (db as any).watermark_payment_amount,
 });
 
 export const useCampaigns = () => {
