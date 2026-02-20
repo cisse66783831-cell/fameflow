@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRoles } from '@/hooks/useUserRoles';
 import { 
-  Sparkles, LogOut, User, Calendar, Ticket, ScanLine, LayoutDashboard, Plus, Home, ShieldCheck
+  Sparkles, LogOut, User, Calendar, Ticket, ScanLine, LayoutDashboard, Plus, Home, ShieldCheck, BookOpen
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -57,6 +57,16 @@ export function Header() {
           >
             <Calendar className="w-4 h-4 mr-1" />
             Événements
+          </Button>
+
+          <Button 
+            variant={isActive('/guide') ? 'secondary' : 'ghost'} 
+            size="sm"
+            onClick={() => navigate('/guide')}
+            className="hidden sm:flex"
+          >
+            <BookOpen className="w-4 h-4 mr-1" />
+            Guide
           </Button>
 
 
