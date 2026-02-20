@@ -21,6 +21,7 @@ import TicketPurchasePage from "./pages/TicketPurchase";
 import SuperAdminPage from "./pages/SuperAdmin";
 import CampaignBySlugPage from "./pages/CampaignBySlug";
 import SharedVisualPage from "./pages/SharedVisual";
+import GuidePage from "./pages/Guide";
 import CGV from "./pages/CGV";
 import RefundPolicy from "./pages/RefundPolicy";
 import Privacy from "./pages/Privacy";
@@ -67,6 +68,7 @@ const App = () => (
                 <Route path="/scanner" element={<ScannerPage />} />
                 <Route path="/event/:eventId/ticket" element={<TicketPurchasePage />} />
                 <Route path="/super-admin" element={<SuperAdminPage />} />
+                <Route path="/guide" element={<GuidePage />} />
                 {/* Legal & Institutional pages */}
                 <Route path="/cgv" element={<CGV />} />
                 <Route path="/politique-remboursement" element={<RefundPolicy />} />
