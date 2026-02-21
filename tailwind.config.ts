@@ -14,8 +14,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        display: ['Outfit', 'sans-serif'],
-        body: ['Inter', 'sans-serif'],
+        display: ['Clash Display', 'Outfit', 'sans-serif'],
+        body: ['DM Sans', 'Inter', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -69,12 +69,33 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
-        neon: {
-          pink: "hsl(320 100% 60%)",
-          cyan: "hsl(180 100% 50%)",
-          green: "hsl(120 100% 45%)",
-          orange: "hsl(35 100% 55%)",
-          purple: "hsl(280 100% 55%)",
+        gold: {
+          50: "hsl(42 80% 95%)",
+          100: "hsl(42 80% 88%)",
+          200: "hsl(42 80% 75%)",
+          300: "hsl(42 80% 60%)",
+          400: "hsl(42 80% 50%)",
+          500: "hsl(42 80% 45%)",
+          600: "hsl(42 80% 38%)",
+          700: "hsl(42 80% 30%)",
+        },
+        terracotta: {
+          50: "hsl(17 85% 95%)",
+          100: "hsl(17 85% 88%)",
+          200: "hsl(17 85% 75%)",
+          300: "hsl(17 85% 60%)",
+          400: "hsl(17 85% 50%)",
+          500: "hsl(17 85% 40%)",
+          600: "hsl(17 85% 32%)",
+        },
+        turquoise: {
+          50: "hsl(175 64% 95%)",
+          100: "hsl(175 64% 85%)",
+          200: "hsl(175 64% 70%)",
+          300: "hsl(175 50% 50%)",
+          400: "hsl(175 64% 38%)",
+          500: "hsl(175 64% 29%)",
+          600: "hsl(175 64% 22%)",
         },
       },
       borderRadius: {
@@ -87,6 +108,7 @@ export default {
       boxShadow: {
         soft: "var(--shadow-soft)",
         glow: "var(--shadow-glow)",
+        gold: "var(--shadow-gold)",
         card: "var(--shadow-card)",
         elevated: "var(--shadow-elevated)",
       },
