@@ -29,10 +29,10 @@ export function Header() {
           onClick={() => navigate('/')} 
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
         >
-          <div className="p-2 rounded-xl gradient-neon animate-glow">
-            <Sparkles className="w-5 h-5 text-white" />
+          <div className="p-2 rounded-xl gradient-solar animate-glow">
+            <Sparkles className="w-5 h-5 text-primary-foreground" />
           </div>
-          <span className="text-xl font-bold font-display text-gradient-neon hidden sm:block">
+          <span className="text-xl font-bold font-display text-gradient hidden sm:block">
             Jyserai
           </span>
         </button>
@@ -69,10 +69,8 @@ export function Header() {
             Guide
           </Button>
 
-
           {user ? (
             <>
-              {/* My Events - accessible to all logged in users */}
               <Button 
                 variant={isActive('/admin/events') ? 'secondary' : 'ghost'}
                 size="sm"
@@ -82,7 +80,6 @@ export function Header() {
                 <span className="hidden md:inline">Mes événements</span>
               </Button>
 
-              {/* Scanner Link - always visible for logged in users */}
               <Button 
                 variant={isActive('/scanner') ? 'secondary' : 'ghost'}
                 size="sm"
@@ -93,20 +90,18 @@ export function Header() {
                 <span className="hidden lg:inline">Scanner</span>
               </Button>
 
-              {/* Super Admin Link - only for super admins */}
               {isSuperAdmin() && (
                 <Button 
                   variant={isActive('/super-admin') ? 'secondary' : 'ghost'}
                   size="sm"
                   onClick={() => navigate('/super-admin')}
-                  className="hidden md:flex text-amber-500 hover:text-amber-400"
+                  className="hidden md:flex text-primary hover:text-primary"
                 >
                   <ShieldCheck className="w-4 h-4 mr-1" />
                   <span className="hidden lg:inline">Admin</span>
                 </Button>
               )}
 
-              {/* Wallet */}
               <Button 
                 variant={isActive('/wallet') ? 'secondary' : 'ghost'}
                 size="sm"
@@ -116,7 +111,6 @@ export function Header() {
                 <span className="hidden md:inline">Wallet</span>
               </Button>
 
-              {/* User Menu */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="rounded-full">
@@ -146,7 +140,7 @@ export function Header() {
                     Scanner
                   </DropdownMenuItem>
                   {isSuperAdmin() && (
-                    <DropdownMenuItem onClick={() => navigate('/super-admin')} className="text-amber-500">
+                    <DropdownMenuItem onClick={() => navigate('/super-admin')} className="text-primary">
                       <ShieldCheck className="w-4 h-4 mr-2" />
                       Super Admin
                     </DropdownMenuItem>
@@ -172,7 +166,7 @@ export function Header() {
                 Connexion
               </Button>
               <Button 
-                className="btn-neon gradient-primary" 
+                className="btn-neon gradient-primary text-primary-foreground" 
                 size="sm"
                 onClick={() => navigate('/auth?mode=signup')}
               >
