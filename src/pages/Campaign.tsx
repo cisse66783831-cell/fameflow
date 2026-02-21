@@ -61,6 +61,7 @@ const CampaignPage = () => {
         .from('campaigns')
         .select('*')
         .eq('id', id)
+        .in('payment_status', ['free', 'approved'])
         .maybeSingle();
 
       if (fetchError) {
