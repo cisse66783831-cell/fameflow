@@ -4,55 +4,12 @@ import { Campaign } from '@/types/campaign';
 import { PhotoEditor } from '@/components/PhotoEditor';
 import { VideoRecorder } from '@/components/VideoRecorder';
 import { supabase } from '@/integrations/supabase/client';
-import { Json } from '@/integrations/supabase/types';
-import { TextElement } from '@/types/campaign';
+import { mapDbToCampaign } from '@/lib/mapDbToCampaign';
 import { ArrowLeft, Loader2, Sparkles, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Helmet } from 'react-helmet-async';
 import { trackDownload } from '@/utils/trackDownload';
 import { trackPageView } from '@/utils/trackPageView';
-
-const mapDbToCampaign = (db: {
-  id: string;
-  user_id: string;
-  title: string;
-  description: string | null;
-  type: string;
-  frame_image: string;
-  frame_image_portrait: string | null;
-  frame_image_landscape: string | null;
-  background_image: string | null;
-  text_elements: Json;
-  hashtags: string[];
-  views: number;
-  downloads: number;
-  is_demo: boolean;
-  created_at: string;
-  updated_at: string;
-  slug?: string | null;
-  payment_status?: string | null;
-  watermark_status?: string | null;
-  watermark_payment_amount?: number | null;
-}): Campaign & { slug?: string | null; paymentStatus?: string | null } => ({
-  id: db.id,
-  title: db.title,
-  description: db.description || '',
-  type: db.type as 'photo' | 'document' | 'video_filter',
-  frameImage: db.frame_image,
-  frameImagePortrait: db.frame_image_portrait || undefined,
-  frameImageLandscape: db.frame_image_landscape || undefined,
-  backgroundImage: db.background_image || undefined,
-  textElements: db.text_elements as unknown as TextElement[],
-  hashtags: db.hashtags,
-  views: db.views,
-  downloads: db.downloads,
-  createdAt: new Date(db.created_at),
-  isDemo: db.is_demo,
-  slug: db.slug,
-  paymentStatus: db.payment_status as Campaign['paymentStatus'],
-  watermarkStatus: db.watermark_status as Campaign['watermarkStatus'],
-  watermarkPaymentAmount: db.watermark_payment_amount,
-});
 
 const CampaignBySlugPage = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -95,7 +52,6 @@ const CampaignBySlugPage = () => {
         setError('Campagne introuvable');
       } else {
         setCampaign(mapDbToCampaign(data));
-        // Increment views
         supabase.rpc('increment_campaign_views', { campaign_id: data.id });
       }
       setIsLoading(false);
@@ -104,7 +60,6 @@ const CampaignBySlugPage = () => {
     fetchCampaign();
   }, [slug]);
 
-  // Track time on page
   useEffect(() => {
     if (!campaign) return;
     const cleanup = trackPageView({ campaignId: campaign.id });
@@ -114,15 +69,12 @@ const CampaignBySlugPage = () => {
   const handleDownload = async (mediaType: 'photo' | 'pdf' = 'photo') => {
     if (!campaign) return;
     
-    // Track download in download_stats (works for anonymous users)
     await trackDownload({
       campaignId: campaign.id,
       mediaType: mediaType === 'pdf' ? 'pdf' : 'photo',
     });
     
-    // Update campaign counter using RPC (atomic, works for anonymous users)
     await supabase.rpc('increment_campaign_downloads', { campaign_id: campaign.id });
-    
     setCampaign(prev => prev ? { ...prev, downloads: prev.downloads + 1 } : null);
   };
 
@@ -166,7 +118,6 @@ const CampaignBySlugPage = () => {
       </Helmet>
       
       <div className="min-h-screen bg-background">
-        {/* Header */}
         <header className="border-b border-border bg-background/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-4 flex items-center justify-between">
             <Link to="/" className="flex items-center gap-2">
@@ -184,9 +135,7 @@ const CampaignBySlugPage = () => {
           </div>
         </header>
 
-        {/* Content */}
         <main className="container mx-auto px-4 py-8">
-          {/* Title Section */}
           <div className={isVideoFilter ? "text-center mb-8" : "mb-8"}>
             {isVideoFilter && (
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-chart-1/10 border border-chart-1/20 text-chart-1 text-sm font-medium mb-4">
@@ -204,7 +153,6 @@ const CampaignBySlugPage = () => {
             )}
           </div>
 
-          {/* Content based on type */}
           {isVideoFilter ? (
             <div className="max-w-2xl mx-auto">
               <VideoRecorder 
@@ -219,7 +167,6 @@ const CampaignBySlugPage = () => {
             <PhotoEditor campaign={campaign} onDownload={handleDownload} />
           )}
 
-          {/* Hashtags (for video filters) */}
           {isVideoFilter && campaign.hashtags && campaign.hashtags.length > 0 && (
             <div className="mt-8 text-center">
               <p className="text-sm text-muted-foreground mb-2">Partagez avec</p>
@@ -236,7 +183,6 @@ const CampaignBySlugPage = () => {
             </div>
           )}
 
-          {/* Stats (for video filters) */}
           {isVideoFilter && (
             <div className="mt-8 flex justify-center gap-8 text-sm text-muted-foreground">
               <span>{campaign.views} vues</span>
@@ -245,7 +191,6 @@ const CampaignBySlugPage = () => {
           )}
         </main>
 
-        {/* Footer */}
         <footer className="border-t border-border py-6 mt-12">
           <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
             <p>
