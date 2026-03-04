@@ -3,45 +3,12 @@ import { useParams, Link } from 'react-router-dom';
 import { Campaign } from '@/types/campaign';
 import { PhotoEditor } from '@/components/PhotoEditor';
 import { supabase } from '@/integrations/supabase/client';
-import { Json } from '@/integrations/supabase/types';
-import { TextElement } from '@/types/campaign';
+import { mapDbToCampaign } from '@/lib/mapDbToCampaign';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Helmet } from 'react-helmet-async';
 import { trackDownload } from '@/utils/trackDownload';
 import { trackPageView } from '@/utils/trackPageView';
-
-const mapDbToCampaign = (db: {
-  id: string;
-  user_id: string;
-  title: string;
-  description: string | null;
-  type: string;
-  frame_image: string;
-  background_image: string | null;
-  text_elements: Json;
-  hashtags: string[];
-  views: number;
-  downloads: number;
-  is_demo: boolean;
-  created_at: string;
-  updated_at: string;
-}): Campaign => ({
-  id: db.id,
-  title: db.title,
-  description: db.description || '',
-  type: db.type as 'photo' | 'document',
-  frameImage: db.frame_image,
-  backgroundImage: db.background_image || undefined,
-  textElements: db.text_elements as unknown as TextElement[],
-  hashtags: db.hashtags,
-  views: db.views,
-  downloads: db.downloads,
-  createdAt: new Date(db.created_at),
-  isDemo: db.is_demo,
-  watermarkStatus: (db as any).watermark_status as Campaign['watermarkStatus'],
-  watermarkPaymentAmount: (db as any).watermark_payment_amount,
-});
 
 const CampaignPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -71,7 +38,6 @@ const CampaignPage = () => {
         setError('Campaign not found');
       } else {
         setCampaign(mapDbToCampaign(data));
-        // Increment views using RPC function (works for anonymous users)
         supabase.rpc('increment_campaign_views', { campaign_id: id });
       }
       setIsLoading(false);
@@ -80,7 +46,6 @@ const CampaignPage = () => {
     fetchCampaign();
   }, [id]);
 
-  // Track time on page
   useEffect(() => {
     if (!id || !campaign) return;
     const cleanup = trackPageView({ campaignId: id });
@@ -90,15 +55,12 @@ const CampaignPage = () => {
   const handleDownload = async (mediaType: 'photo' | 'pdf' = 'photo') => {
     if (!campaign) return;
     
-    // Track download in download_stats (works for anonymous users)
     await trackDownload({
       campaignId: campaign.id,
       mediaType: mediaType === 'pdf' ? 'pdf' : 'photo',
     });
     
-    // Update campaign counter using RPC (atomic, works for anonymous users)
     await supabase.rpc('increment_campaign_downloads', { campaign_id: campaign.id });
-    
     setCampaign(prev => prev ? { ...prev, downloads: prev.downloads + 1 } : null);
   };
 
@@ -140,7 +102,6 @@ const CampaignPage = () => {
       </Helmet>
       
       <div className="min-h-screen bg-background">
-        {/* Header */}
         <header className="border-b border-border bg-background/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-4 flex items-center justify-between">
             <Link to="/" className="flex items-center gap-2">
@@ -158,7 +119,6 @@ const CampaignPage = () => {
           </div>
         </header>
 
-        {/* Content */}
         <main className="container mx-auto px-4 py-8">
           <div className="mb-8">
             <h1 className="text-3xl font-display font-bold text-foreground">
@@ -174,7 +134,6 @@ const CampaignPage = () => {
           <PhotoEditor campaign={campaign} onDownload={handleDownload} />
         </main>
 
-        {/* Footer */}
         <footer className="border-t border-border py-6 mt-12">
           <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
             <p>
