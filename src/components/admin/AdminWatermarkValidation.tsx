@@ -157,6 +157,28 @@ export function AdminWatermarkValidation({ campaigns, onRefresh, isLoading }: Ad
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <div className="flex rounded-lg border border-border overflow-hidden">
+              <button
+                onClick={() => setViewMode('pending')}
+                className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                  viewMode === 'pending' 
+                    ? 'bg-primary text-primary-foreground' 
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                En attente ({pendingCampaigns.length})
+              </button>
+              <button
+                onClick={() => setViewMode('all')}
+                className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                  viewMode === 'all' 
+                    ? 'bg-primary text-primary-foreground' 
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                Actifs ({activeCampaigns.length})
+              </button>
+            </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
