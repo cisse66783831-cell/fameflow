@@ -429,14 +429,6 @@ export function AdminWatermarkValidation({ campaigns, onRefresh, isLoading }: Ad
                   </AlertDialog>
                 </div>
               </div>
-            ))}
-                      <CheckCircle2 className="w-4 h-4" />
-                    )}
-                    Retirer le filigrane
-                  </Button>
-                </div>
-              </div>
-            ))}
           </div>
         )}
       </CardContent>
