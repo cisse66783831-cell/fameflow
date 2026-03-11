@@ -429,8 +429,9 @@ export function AdminWatermarkValidation({ campaigns, onRefresh, isLoading }: Ad
                   </AlertDialog>
                 </div>
               </div>
+              </div>
+            ))}
           </div>
-        )}
       </CardContent>
     </Card>
   );
