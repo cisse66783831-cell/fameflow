@@ -106,8 +106,27 @@ export const CampaignCard = ({ campaign, onSelect, onDelete, onEdit, index }: Ca
           {campaign.type === 'photo' ? 'Cadre Photo' : campaign.type === 'video_filter' ? 'Filtre Vidéo' : 'Document'}
         </div>
 
+        {campaign.type === 'photo' && campaign.watermarkStatus === 'active' && (
+          <div className="absolute top-3 right-3 px-2 py-1 rounded-full text-xs font-medium bg-blue-500/90 text-white flex items-center gap-1">
+            <Droplets className="w-3 h-3" />
+            Filigrane
+          </div>
+        )}
+        {campaign.type === 'photo' && campaign.watermarkStatus === 'pending' && (
+          <div className="absolute top-3 right-3 px-2 py-1 rounded-full text-xs font-medium bg-amber-500/90 text-white flex items-center gap-1">
+            <Droplets className="w-3 h-3" />
+            En attente
+          </div>
+        )}
+        {campaign.type === 'photo' && campaign.watermarkStatus === 'removed' && (
+          <div className="absolute top-3 right-3 px-2 py-1 rounded-full text-xs font-medium bg-green-500/90 text-white flex items-center gap-1">
+            <Droplets className="w-3 h-3" />
+            Retiré
+          </div>
+        )}
+
         {campaign.isDemo && (
-          <div className="absolute top-3 right-3 px-2 py-1 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
+          <div className="absolute top-12 right-3 px-2 py-1 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
             Demo
           </div>
         )}
