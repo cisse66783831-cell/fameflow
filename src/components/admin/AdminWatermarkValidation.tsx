@@ -246,7 +246,11 @@ export function AdminWatermarkValidation({ campaigns, onRefresh, isLoading }: Ad
             {filteredCampaigns.map((campaign) => (
               <div
                 key={campaign.id}
-                className="p-4 rounded-xl border border-blue-500/30 bg-blue-500/5 space-y-4"
+                className={`p-4 rounded-xl border space-y-4 ${
+                  viewMode === 'pending' 
+                    ? 'border-blue-500/30 bg-blue-500/5' 
+                    : 'border-border bg-muted/20'
+                }`}
               >
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
@@ -273,7 +277,7 @@ export function AdminWatermarkValidation({ campaigns, onRefresh, isLoading }: Ad
                           <span className="text-xs">({campaign.owner_email})</span>
                         )}
                       </div>
-                      {campaign.watermark_removal_requested_at && (
+                      {viewMode === 'pending' && campaign.watermark_removal_requested_at && (
                         <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
                           <Calendar className="w-3 h-3" />
                           Demandé le {new Date(campaign.watermark_removal_requested_at).toLocaleDateString('fr-FR', {
@@ -285,43 +289,62 @@ export function AdminWatermarkValidation({ campaigns, onRefresh, isLoading }: Ad
                           })}
                         </div>
                       )}
+                      {viewMode === 'all' && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                          <Calendar className="w-3 h-3" />
+                          Créée le {new Date(campaign.created_at).toLocaleDateString('fr-FR', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric',
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
                   
-                  <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30">
-                    <Clock className="w-3 h-3 mr-1" />
-                    En attente
-                  </Badge>
+                  {viewMode === 'pending' ? (
+                    <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30">
+                      <Clock className="w-3 h-3 mr-1" />
+                      En attente
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30">
+                      <Droplets className="w-3 h-3 mr-1" />
+                      Filigrane actif
+                    </Badge>
+                  )}
                 </div>
 
-                {/* Payment Details */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="flex items-center gap-2 p-3 rounded-lg bg-background/80 border">
-                    <CreditCard className="w-4 h-4 text-primary" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Code transaction</p>
-                      <p className="font-mono font-bold text-sm">{campaign.watermark_transaction_code || 'N/A'}</p>
+                {/* Payment Details - only for pending */}
+                {viewMode === 'pending' && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="flex items-center gap-2 p-3 rounded-lg bg-background/80 border">
+                      <CreditCard className="w-4 h-4 text-primary" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Code transaction</p>
+                        <p className="font-mono font-bold text-sm">{campaign.watermark_transaction_code || 'N/A'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 p-3 rounded-lg bg-background/80 border">
+                      <Globe className="w-4 h-4 text-primary" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Pays</p>
+                        <p className="font-medium text-sm">
+                          {countryLabels[campaign.watermark_payment_country || ''] || campaign.watermark_payment_country || 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 p-3 rounded-lg bg-background/80 border">
+                      <Phone className="w-4 h-4 text-primary" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Montant</p>
+                        <p className="font-bold text-sm text-green-600">
+                          {(campaign.watermark_payment_amount || 0).toLocaleString()} FCFA
+                        </p>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 p-3 rounded-lg bg-background/80 border">
-                    <Globe className="w-4 h-4 text-primary" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Pays</p>
-                      <p className="font-medium text-sm">
-                        {countryLabels[campaign.watermark_payment_country || ''] || campaign.watermark_payment_country || 'N/A'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 p-3 rounded-lg bg-background/80 border">
-                    <Phone className="w-4 h-4 text-primary" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Montant</p>
-                      <p className="font-bold text-sm text-green-600">
-                        {(campaign.watermark_payment_amount || 0).toLocaleString()} FCFA
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                )}
 
                 {/* Actions */}
                 <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t">
@@ -338,46 +361,75 @@ export function AdminWatermarkValidation({ campaigns, onRefresh, isLoading }: Ad
                   )}
                   <div className="flex-1" />
                   
+                  {viewMode === 'pending' && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                          disabled={processingId === campaign.id}
+                        >
+                          <XCircle className="w-4 h-4 mr-1" />
+                          Rejeter
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Rejeter cette demande ?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Le filigrane restera actif sur la campagne "{campaign.title}".
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Annuler</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={() => handleReject(campaign.id)}
+                            className="bg-destructive hover:bg-destructive/90"
+                          >
+                            Rejeter
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button 
-                        variant="outline" 
                         size="sm" 
-                        className="text-destructive border-destructive/30 hover:bg-destructive/10"
                         disabled={processingId === campaign.id}
+                        className="gap-2 bg-green-600 hover:bg-green-700"
                       >
-                        <XCircle className="w-4 h-4 mr-1" />
-                        Rejeter
+                        {processingId === campaign.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="w-4 h-4" />
+                        )}
+                        Retirer le filigrane
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Rejeter cette demande ?</AlertDialogTitle>
+                        <AlertDialogTitle>Retirer le filigrane ?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          Le filigrane restera actif sur la campagne "{campaign.title}".
+                          Le filigrane sera définitivement retiré de la campagne "{campaign.title}".
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Annuler</AlertDialogCancel>
                         <AlertDialogAction 
-                          onClick={() => handleReject(campaign.id)}
-                          className="bg-destructive hover:bg-destructive/90"
+                          onClick={() => handleApprove(campaign.id)}
+                          className="bg-green-600 hover:bg-green-700"
                         >
-                          Rejeter
+                          Confirmer le retrait
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
-
-                  <Button 
-                    size="sm" 
-                    onClick={() => handleApprove(campaign.id)}
-                    disabled={processingId === campaign.id}
-                    className="gap-2 bg-green-600 hover:bg-green-700"
-                  >
-                    {processingId === campaign.id ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
+                </div>
+              </div>
+            ))}
                       <CheckCircle2 className="w-4 h-4" />
                     )}
                     Retirer le filigrane
