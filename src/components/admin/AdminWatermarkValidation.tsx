@@ -25,6 +25,7 @@ interface PendingWatermarkCampaign {
   id: string;
   title: string;
   frame_image: string | null;
+  type?: string;
   watermark_status: string;
   watermark_removal_requested_at: string | null;
   watermark_transaction_code?: string | null;
