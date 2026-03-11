@@ -55,13 +55,21 @@ export function AdminWatermarkValidation({ campaigns, onRefresh, isLoading }: Ad
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [defaultPrice, setDefaultPrice] = useState(1000);
   const [isSavingPrice, setIsSavingPrice] = useState(false);
+  const [viewMode, setViewMode] = useState<'pending' | 'all'>('pending');
 
   // Filter only pending watermark removal requests
   const pendingCampaigns = campaigns.filter(
     c => c.watermark_status === 'pending'
   );
 
-  const filteredCampaigns = pendingCampaigns.filter(campaign => 
+  // All photo campaigns with active watermark (for direct removal by admin)
+  const activeCampaigns = campaigns.filter(
+    c => c.watermark_status === 'active'
+  );
+
+  const displayedCampaigns = viewMode === 'pending' ? pendingCampaigns : activeCampaigns;
+
+  const filteredCampaigns = displayedCampaigns.filter(campaign => 
     campaign.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     campaign.owner_name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
