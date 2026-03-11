@@ -235,7 +235,11 @@ export function AdminWatermarkValidation({ campaigns, onRefresh, isLoading }: Ad
         ) : filteredCampaigns.length === 0 ? (
           <div className="text-center py-12">
             <CheckCircle2 className="w-12 h-12 mx-auto text-green-500 mb-4" />
-            <p className="text-muted-foreground">Aucune demande de retrait en attente</p>
+            <p className="text-muted-foreground">
+              {viewMode === 'pending' 
+                ? 'Aucune demande de retrait en attente' 
+                : 'Aucune campagne avec filigrane actif'}
+            </p>
           </div>
         ) : (
           <div className="space-y-4">
