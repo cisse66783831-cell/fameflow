@@ -65,7 +65,7 @@ export function AdminWatermarkValidation({ campaigns, onRefresh, isLoading }: Ad
 
   // All photo campaigns with active watermark (for direct removal by admin)
   const activeCampaigns = campaigns.filter(
-    c => c.watermark_status === 'active'
+    c => c.watermark_status === 'active' && c.type === 'photo'
   );
 
   const displayedCampaigns = viewMode === 'pending' ? pendingCampaigns : activeCampaigns;
