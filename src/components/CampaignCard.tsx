@@ -1,4 +1,5 @@
 import { Campaign } from '@/types/campaign';
+import { Droplets } from 'lucide-react';
 import { Eye, Download, Image, FileText, Trash2, Play, Share2, Copy, Check, Pencil, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
