@@ -846,8 +846,8 @@ export const PhotoEditor = ({ campaign, onDownload }: PhotoEditorProps) => {
             Download PDF
           </Button>
 
-          {/* Watermark removal request button - only for campaign owners */}
-          {showWatermark && user && campaign.watermarkStatus !== 'pending' && (
+          {/* Watermark removal request button - visible to all users */}
+          {showWatermark && campaign.watermarkStatus !== 'pending' && (
             <Button 
               variant="outline" 
               className="w-full text-primary border-primary/30 hover:bg-primary/10"
