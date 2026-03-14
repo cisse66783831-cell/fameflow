@@ -55,8 +55,9 @@ export async function createSharedVisual({
       return null;
     }
 
-    // Return the share URL
-    return `/share/${visualData.id}`;
+    // Return the edge function URL so WhatsApp/Facebook crawlers get proper OG tags
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    return `${supabaseUrl}/functions/v1/share-og?id=${visualData.id}`;
   } catch (error) {
     console.error('Error creating shared visual:', error);
     return null;
