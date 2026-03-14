@@ -44,9 +44,9 @@ export const SocialShare = ({
       });
 
       if (sharePath) {
-        const fullUrl = `${window.location.origin}${sharePath}`;
-        setCustomShareUrl(fullUrl);
-        return fullUrl;
+        // sharePath is now a full edge function URL with OG tags
+        setCustomShareUrl(sharePath);
+        return sharePath;
       }
     } catch (error) {
       console.error('Error creating share link:', error);
