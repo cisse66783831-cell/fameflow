@@ -65,6 +65,6 @@ export async function createSharedVisual({
 }
 
 export function getShareUrl(visualId: string): string {
-  const baseUrl = window.location.origin;
-  return `${baseUrl}/share/${visualId}`;
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  return `${supabaseUrl}/functions/v1/share-og?id=${visualId}`;
 }
